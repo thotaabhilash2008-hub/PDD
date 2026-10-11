@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HemoConnect | Intelligent Blood Logistics Platform</title>
+  <meta name="description" content="AI-powered blood logistics platform connecting donors, receivers, and hospitals with real-time location-based donor matching and emergency SOS dispatch.">
+
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body data-theme="dark">
+
+  <!-- Emergency Ticker Bar -->
+  <div id="emergency-ticker-bar" class="emergency-ticker" style="display: none;">
+    <div class="ticker-content">
+      <span class="ticker-badge">SOS ALERT</span>
+      <span id="ticker-text">🚨 Emergency Request Active</span>
+    </div>
+    <button class="btn btn-outline-danger" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;" onclick="HemoApp.switchTab('matching')">
+      View Match
+    </button>
+  </div>
+
+  <!-- Navbar Header -->
+  <header class="navbar">
+    <a href="#" class="brand" onclick="HemoApp.switchTab('dashboard')">
+      <div class="brand-icon">🩸</div>
+      <div class="brand-text">
+        <span class="brand-title"><span style="color: var(--primary-red);">Hemo</span>Connect</span>
+        <span class="brand-subtitle">Intelligent Blood Logistics</span>
+      </div>
+    </a>
+
+    <ul class="nav-links">
+      <li><a class="nav-item active" data-tab="dashboard">🏠 Dashboard</a></li>
+      <li><a class="nav-item" data-tab="donors">🩸 Donor Network</a></li>
+      <li><a class="nav-item" data-tab="requests">🏥 Request Portal</a></li>
+      <li><a class="nav-item" data-tab="matching">🎯 Matching Engine</a></li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="btn-sos-header" onclick="HemoApp.openSosModal()">
+        🚨 Emergency SOS
+      </button>
+      <button id="theme-toggle-btn" class="btn btn-secondary" style="padding: 0.5rem 0.9rem; font-size: 0.82rem;">
+        🌙 Dark Mode
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- ================= TAB 1: DASHBOARD ================= -->
+    <section id="tab-dashboard" class="tab-content">
+      <!-- Hero Banner -->
+      <div class="hero-card">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <div class="hero-tag">
+            <span style="animation: flash 1s infinite;">🔴</span> Real-time AI Logistics Active
+          </div>
+          <h1 class="hero-title">
+            Intelligent Blood Logistics <br>
+            <span class="text-gradient">Connecting Donors & Hospitals</span>
+          </h1>
+          <p class="hero-desc">
+            HemoConnect optimizes emergency blood dispatch by combining compatibility matrix analysis, 
+            Haversine distance proximity, live donor availability, and urgency scoring to save lives in minutes.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onclick="HemoApp.openSosModal()">
+              🚨 Emergency Blood Request (SOS)
+            </button>
+            <button class="btn btn-secondary" onclick="HemoApp.switchTab('donors')">
+              🩸 Become a Hero Donor
+            </button>
+            <button class="btn btn-secondary" onclick="HemoApp.switchTab('requests')">
+              🏥 Hospital Request Portal
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon icon-red">🩸</div>
+          <div class="stat-info">
+            <span id="stat-donors" class="stat-value">--</span>
+            <span class="stat-label">Registered Donors</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-emerald">✅</div>
+          <div class="stat-info">
+            <span id="stat-available" class="stat-value">--</span>
+            <span class="stat-label">Available Now</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">🏥</div>
+          <div class="stat-info">
+            <span id="stat-requests" class="stat-value">--</span>
+            <span class="stat-label">Active Requests</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-amber">🚨</div>
+          <div class="stat-info">
+            <span id="stat-sos" class="stat-value" style="color: #ff2e55;">--</span>
+            <span class="stat-label">Critical SOS Alerts</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-emerald">❤️</div>
+          <div class="stat-info">
+            <span id="stat-fulfilled" class="stat-value">--</span>
+            <span class="stat-label">Units Fulfilled</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GIS Map & Live Requests Grid -->
+      <div class="grid-2">
+        <div>
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">📍 Live GIS Radar & Location Map</h2>
+              <p class="section-subtitle">Real-time proximity vectors between hospitals & registered donors</p>
+            </div>
+          </div>
+          <div id="map-container" class="map-view-box"></div>
+        </div>
+
+        <div>
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">🚨 Active Emergency Blood Requests</h2>
+              <p class="section-subtitle">Live feed of hospital and receiver requests awaiting fulfillment</p>
+            </div>
+          </div>
+          <div id="active-requests-container" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: DONORS NETWORK ================= -->
+    <section id="tab-donors" class="tab-content" style="display: none;">
+      <div class="grid-2">
+        <!-- Donor Registration Card -->
+        <div class="card">
+          <h2 class="section-title" style="margin-bottom: 0.5rem;">🩸 Donor Profile & Registration</h2>
+          <p class="section-subtitle" style="margin-bottom: 1.5rem;">Register to save lives. Automatic eligibility computation enabled.</p>
+
+          <form id="donor-reg-form">
+            <div class="form-group">
+              <label class="form-label">Full Name *</label>
+              <input type="text" name="name" class="form-control" placeholder="e.g. Dr. Sarah Vance" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Age * (Must be >= 18)</label>
+                <input type="number" id="donor_age" name="age" class="form-control" placeholder="Age" min="18" max="65" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Gender</label>
+                <select name="gender" class="form-select">
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Blood Group *</label>
+                <select name="blood_group" class="form-select" required>
+                  <option value="O-">O- (Universal Donor)</option>
+                  <option value="O+">O+</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+ (Universal Recipient)</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">City / Area *</label>
+                <input type="text" name="city" class="form-control" placeholder="e.g. Central City" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Street Address / Landmark</label>
+              <input type="text" name="address" class="form-control" placeholder="e.g. 124 Park Avenue">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Phone Contact *</label>
+                <input type="tel" name="phone" class="form-control" placeholder="+1 (555) 000-0000" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="donor@domain.org">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Last Donation Date</label>
+                <input type="date" id="last_donation_date" name="last_donation_date" class="form-control">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Availability Status</label>
+                <select name="availability_status" class="form-select">
+                  <option value="Available">Available (Immediate)</option>
+                  <option value="On Call">On Call (2-4 hrs)</option>
+                  <option value="Unavailable">Unavailable</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="background: rgba(0,0,0,0.2); padding: 0.85rem; border-radius: var(--radius-md);">
+              <label class="form-label" style="margin-bottom: 0.2rem;">Automatic Eligibility Computation:</label>
+              <div id="eligibility-preview-box" class="status-pill pill-eligible">
+                ✅ Eligible for immediate donation
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Previous Donations Count</label>
+                <input type="number" name="prev_donations_count" class="form-control" value="0" min="0">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Weight (kg)</label>
+                <input type="number" name="weight" class="form-control" value="65" min="50">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+              🩸 Register Profile as Lifesaver Donor
+            </button>
+          </form>
+        </div>
+
+        <!-- Donors List & Search Directory -->
+        <div>
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">🔍 Registered Donor Directory</h2>
+              <p class="section-subtitle">Real-time status and eligibility search</p>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <input type="text" id="donor-search-input" class="form-control" placeholder="Search by name, city, or phone..." style="flex: 2;">
+            <select id="donor-bg-filter" class="form-select" style="flex: 1;">
+              <option value="">All Blood Groups</option>
+              <option value="O-">O- Universal</option>
+              <option value="O+">O+</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+            <select id="donor-status-filter" class="form-select" style="flex: 1;">
+              <option value="">All Statuses</option>
+              <option value="Available">Available</option>
+              <option value="On Call">On Call</option>
+            </select>
+          </div>
+
+          <div id="donors-grid" class="grid-2" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 3: RECEIVER / HOSPITAL REQUEST PORTAL ================= -->
+    <section id="tab-requests" class="tab-content" style="display: none;">
+      <div class="card" style="max-width: 850px; margin: 0 auto;">
+        <h2 class="section-title" style="margin-bottom: 0.5rem;">🏥 Hospital & Receiver Blood Request Registration</h2>
+        <p class="section-subtitle" style="margin-bottom: 2rem;">File a blood request for emergency trauma, surgery, or routine care.</p>
+
+        <form id="request-reg-form">
+          <div class="form-group">
+            <label class="form-label">Receiver Type *</label>
+            <select name="receiver_type" class="form-select" required>
+              <option value="Hospital">🏥 Hospital (Requesting for admitted patients)</option>
+              <option value="Individual">👤 Receiver / Patient (Direct patient request)</option>
+              <option value="Authorized Representative">👤 Authorized Representative (Family member / Guardian)</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Facility / Requester Name *</label>
+              <input type="text" name="name" class="form-control" placeholder="e.g. St. Jude Memorial Hospital" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Patient Name (if applicable)</label>
+              <input type="text" name="patient_name" class="form-control" placeholder="e.g. Michael Scott">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Blood Group Required *</label>
+              <select name="blood_group" class="form-select" required>
+                <option value="O-">O- (Universal Donor)</option>
+                <option value="O+">O+</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Units Required (1 - 10) *</label>
+              <input type="number" name="units_required" class="form-control" value="2" min="1" max="10" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Urgency Level *</label>
+              <select name="urgency_level" class="form-select" required>
+                <option value="CRITICAL_SOS">🚨 CRITICAL EMERGENCY (Immediate Response Needed < 1 hr)</option>
+                <option value="HIGH">⚡ HIGH PRIORITY (Needed within 6-12 hours)</option>
+                <option value="NORMAL" selected>📅 NORMAL (Scheduled Procedure / Treatment)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Required Date & Time *</label>
+              <input type="datetime-local" name="required_datetime" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">City / Region *</label>
+              <input type="text" name="city" class="form-control" placeholder="e.g. Central City" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Hospital Address / Room No.</label>
+              <input type="text" name="hospital_address" class="form-control" placeholder="e.g. ER Ward 3, 500 Emergency Plaza">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Primary Contact Phone *</label>
+              <input type="tel" name="contact_number" class="form-control" placeholder="+1 (555) 911-0001" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Attending Doctor Name</label>
+              <input type="text" name="attending_doctor" class="form-control" placeholder="Dr. Sarah Jenkins">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Medical Reason / Clinical Notes</label>
+            <textarea name="reason_medical_notes" class="form-control" rows="3" placeholder="Describe patient condition, trauma type, or surgery details..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+            🚀 Broadcast Blood Request & Run AI Donor Matching
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: INTELLIGENT MATCHING ENGINE ================= -->
+    <section id="tab-matching" class="tab-content" style="display: none;">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">🎯 Intelligent Location-Based Donor Matching Engine</h2>
+          <p class="section-subtitle">Multi-factor optimization: Compatibility (35%) + Distance (35%) + Availability (20%) + Eligibility (10%)</p>
+        </div>
+      </div>
+
+      <div id="matching-results-box">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= EMERGENCY SOS MODAL DRAWER ================= -->
+  <div id="sos-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 style="color: #ff2e55; display: flex; align-items: center; gap: 0.5rem;">
+          🚨 Emergency Blood SOS Dispatch
+        </h2>
+        <button class="modal-close" onclick="HemoApp.closeSosModal()">&times;</button>
+      </div>
+
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+        Immediate life-or-death emergency dispatch. Broadcasts high-priority alerts to all compatible donors within a 15km radius.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Hospital / Patient Name *</label>
+        <input type="text" id="sos-hospital" class="form-control" placeholder="e.g. City Trauma Center" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Blood Group Required *</label>
+          <select id="sos-bg" class="form-select">
+            <option value="O-">O- (Universal)</option>
+            <option value="O+">O+</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Units Needed *</label>
+          <input type="number" id="sos-units" class="form-control" value="2" min="1" max="10">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Emergency Phone Number *</label>
+        <input type="tel" id="sos-phone" class="form-control" placeholder="+1 (555) 911-0000" required>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, #ff2e55, #dc2626); font-size: 1.1rem; padding: 0.9rem;" onclick="HemoApp.submitEmergencySos()">
+        🚨 BROADCAST EMERGENCY SOS NOW
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/app.js"></script>
+
+</body>
+</html>
