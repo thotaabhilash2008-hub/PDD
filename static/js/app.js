@@ -3,17 +3,25 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (document.body.dataset.authenticated === 'true') HemoApp.init();
+});
+document.addEventListener('hemo-authenticated', () => {
   HemoApp.init();
+  HemoApp.updateLocationSharingControl();
 });
 
 const HemoApp = {
   currentTab: 'dashboard',
   mapInstance: null,
   activeRequestIdForMatching: null,
+  initialized: false,
 
   init() {
-    this.bindEvents();
+    if (this.initialized) return;
+    this.initialized = true;
     this.initMap();
+    this.initAddressPickers();
+    this.bindEvents();
     this.loadDashboardData();
     this.setupEligibilityLiveChecker();
   },
@@ -21,6 +29,31 @@ const HemoApp = {
   initMap() {
     this.mapInstance = new HemoMap('map-container');
     this.mapInstance.init();
+  },
+
+  initAddressPickers() {
+    this.addressPickers = {
+      donor: new HemoAddressPicker(document.getElementById('donor-address-picker')),
+      receiver: new HemoAddressPicker(document.getElementById('receiver-address-picker')),
+      sos: new HemoAddressPicker(document.getElementById('sos-address-picker'))
+    };
+    this.updateLocationSharingControl();
+  },
+
+  refreshVisibleAddressPicker(name) {
+    requestAnimationFrame(() => this.addressPickers?.[name]?.refresh());
+  },
+
+  updateLocationSharingControl() {
+    const sharing = document.querySelector('#donor-reg-form [name="location_sharing"]');
+    const hint = document.getElementById('location-sharing-hint');
+    if (!sharing) return;
+    const signedIn = Boolean(window.HemoAuth?.currentUser && !window.HemoAuth?.isGuest);
+    sharing.disabled = !signedIn;
+    if (!signedIn) sharing.checked = false;
+    if (hint) hint.textContent = signedIn
+      ? 'Your exact address is never shown publicly. Shared map locations are approximate.'
+      : 'Sign in to opt in. Exact addresses are never shown publicly.';
   },
 
   bindEvents() {
@@ -43,15 +76,38 @@ const HemoApp = {
       });
     }
 
+    const signOutBtn = document.getElementById('sign-out-btn');
+    if (signOutBtn) {
+      signOutBtn.addEventListener('click', () => window.HemoAuth.signOut());
+    }
+
     // Forms Submit
     const donorForm = document.getElementById('donor-reg-form');
     if (donorForm) {
       donorForm.addEventListener('submit', (e) => this.handleDonorRegistration(e));
+      this.updateLocationSharingControl();
+      const donorAge = donorForm.elements.namedItem('age');
+      donorAge.addEventListener('input', () => {
+        const age = Number(donorAge.value);
+        if (donorAge.value && age < 18) {
+          donorAge.setCustomValidity('Donors must be at least 18 years old.');
+        } else if (donorAge.value && (!Number.isInteger(age) || age > 120)) {
+          donorAge.setCustomValidity('Enter a whole-number age between 18 and 120.');
+        } else {
+          donorAge.setCustomValidity('');
+        }
+      });
     }
 
     const requestForm = document.getElementById('request-reg-form');
     if (requestForm) {
       requestForm.addEventListener('submit', (e) => this.handleRequestSubmission(e));
+      const receiverType = requestForm.elements.namedItem('receiver_type');
+      receiverType.addEventListener('change', () => {
+        this.addressPickers.receiver.clearSelection();
+        this.updateReceiverFields(receiverType.value);
+      });
+      this.updateReceiverFields(receiverType.value);
     }
 
     // Filters
@@ -69,6 +125,11 @@ const HemoApp = {
     if (reqUrgencyFilter) {
       reqUrgencyFilter.addEventListener('change', () => this.loadRequests());
     }
+
+    const mapRequestSelect = document.getElementById('map-request-select');
+    if (mapRequestSelect) {
+      mapRequestSelect.addEventListener('change', () => this.renderSelectedNearbyDonors());
+    }
   },
 
   switchTab(tabName) {
@@ -84,11 +145,15 @@ const HemoApp = {
     if (tabName === 'dashboard') {
       this.loadDashboardData();
     } else if (tabName === 'donors') {
+      this.refreshVisibleAddressPicker('donor');
       this.loadDonors();
     } else if (tabName === 'requests') {
+      this.refreshVisibleAddressPicker('receiver');
       this.loadRequests();
     } else if (tabName === 'matching') {
       this.loadMatchingView();
+    } else if (tabName === 'map') {
+      this.loadMapData();
     }
   },
 
@@ -102,13 +167,52 @@ const HemoApp = {
 
       if (statsRes.success) this.renderStats(statsRes.stats);
       if (requestsRes.success) this.renderActiveRequestsFeed(requestsRes.requests);
-      if (requestsRes.success && donorsRes.success) {
-        this.mapInstance.renderData(requestsRes.requests, donorsRes.donors);
-      }
       this.updateEmergencyTicker(requestsRes.requests);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
     }
+  },
+
+  async loadMapData() {
+    const [requestsRes, donorsRes] = await Promise.all([
+      API.getRequests({ status: 'ACTIVE' }),
+      API.getDonors()
+    ]);
+    if (requestsRes.success && donorsRes.success) {
+      this.mapInstance.renderData(requestsRes.requests, donorsRes.donors);
+      const select = document.getElementById('map-request-select');
+      const hasCoordinates = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+      const requestsWithLocation = requestsRes.requests.filter(request =>
+        (request.coordinates_confirmed === true || request.coordinates_confirmed === 1) &&
+        hasCoordinates(request.latitude) && hasCoordinates(request.longitude)
+      );
+      this.mapRequests = requestsWithLocation;
+      this.mapDonors = donorsRes.donors;
+      select.replaceChildren();
+      requestsWithLocation.forEach(request => {
+        const option = document.createElement('option');
+        option.value = String(request.id);
+        option.textContent = `${request.hospital_name || request.receiver_name || request.name} · ${request.blood_group} · ${request.units_required} unit(s)`;
+        select.append(option);
+      });
+      select.disabled = !requestsWithLocation.length;
+      document.getElementById('nearby-donors-list').textContent = requestsWithLocation.length
+        ? ''
+        : 'No active requests with confirmed map locations.';
+      if (requestsWithLocation.length) this.renderSelectedNearbyDonors(donorsRes.donors);
+    }
+  },
+
+  async renderSelectedNearbyDonors(donors = null) {
+    const select = document.getElementById('map-request-select');
+    const target = document.getElementById('nearby-donors-list');
+    const request = (this.mapRequests || []).find(item => String(item.id) === select.value);
+    if (!request) {
+      target.textContent = 'Select an active request to see nearby eligible donors.';
+      return;
+    }
+    const donorList = donors || this.mapDonors || [];
+    this.mapInstance.renderNearbyDonors(request, donorList, target);
   },
 
   renderStats(stats) {
@@ -149,7 +253,13 @@ const HemoApp = {
       const isSos = req.urgency_level === 'CRITICAL_SOS';
       const isHigh = req.urgency_level === 'HIGH';
       const urgencyClass = isSos ? 'urgency-sos' : (isHigh ? 'urgency-high' : 'urgency-normal');
-      const urgencyLabel = isSos ? '🚨 CRITICAL SOS' : (isHigh ? '⚡ HIGH PRIORITY' : '📅 NORMAL');
+      const urgencyLabel = isSos ? '🚨 EMERGENCY' : (isHigh ? '⚡ URGENT' : '📅 NORMAL');
+      const contactLabel = req.receiver_type === 'Hospital' ? 'Contact Person' : 'Receiver';
+      const receiverHeading = req.receiver_type === 'Hospital' ? req.hospital_name || req.name : req.receiver_name || req.name;
+      const receiverPerson = req.receiver_type === 'Hospital'
+        ? req.contact_person || req.patient_name
+        : req.receiver_name || req.patient_name;
+      const requestLocation = req.location_address || req.hospital_address || req.city;
 
       return `
         <div class="card" style="${isSos ? 'border-color: rgba(255, 46, 85, 0.6); box-shadow: var(--shadow-sos);' : ''}">
@@ -157,16 +267,15 @@ const HemoApp = {
             <div>
               <span class="urgency-badge ${urgencyClass}">${urgencyLabel}</span>
               <span style="font-size: 0.78rem; color: var(--text-muted); margin-left: 0.5rem;">${req.receiver_type}</span>
-              <h3 style="margin-top: 0.35rem; font-size: 1.2rem;">${req.name}</h3>
+              <h3 style="margin-top: 0.35rem; font-size: 1.2rem;">${receiverHeading}</h3>
             </div>
             <div class="blood-badge">${req.blood_group}</div>
           </div>
 
           <div style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
-            <p><strong>Patient:</strong> ${req.patient_name || 'N/A'}</p>
+            <p><strong>${contactLabel}:</strong> ${receiverPerson || 'N/A'}</p>
             <p><strong>Units Required:</strong> ${req.units_required} unit(s) (${req.units_fulfilled || 0} fulfilled)</p>
-            <p><strong>Location:</strong> ${req.city} — ${req.hospital_address || ''}</p>
-            <p><strong>Contact:</strong> ${req.contact_number}</p>
+            <p><strong>Location:</strong> ${requestLocation}</p>
           </div>
 
           <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
@@ -180,6 +289,12 @@ const HemoApp = {
         </div>
       `;
     }).join('');
+  },
+
+  async loadRequests() {
+    const urgency = document.getElementById('req-urgency-filter')?.value || '';
+    const res = await API.getRequests({ status: 'ACTIVE', urgency });
+    if (res.success) this.renderActiveRequestsFeed(res.requests);
   },
 
   async loadDonors() {
@@ -202,6 +317,9 @@ const HemoApp = {
       container.innerHTML = res.donors.map(d => {
         const availClass = d.availability_status === 'Available' ? 'pill-available' : (d.availability_status === 'On Call' ? 'pill-oncall' : 'pill-unavailable');
         const eligClass = d.is_eligible ? 'pill-eligible' : 'pill-ineligible';
+        const sharingToggle = d.can_manage_location_sharing
+          ? `<label class="donor-sharing-toggle"><input type="checkbox" ${d.location_sharing ? 'checked' : ''} onchange="HemoApp.setDonorLocationSharing(${d.id}, this.checked)"> Share approximate location</label>`
+          : `<span class="donor-location-status">${d.location_sharing ? 'Approximate location shared' : 'Location private'}</span>`;
 
         return `
           <div class="donor-card">
@@ -218,6 +336,7 @@ const HemoApp = {
                 <span class="status-pill ${availClass}">${d.availability_status}</span>
                 <span class="status-pill ${eligClass}">${d.is_eligible ? '✅ Eligible' : '⏳ Wait (' + d.days_until_eligible + 'd)'}</span>
               </div>
+              ${sharingToggle}
 
               <div class="donor-card-stats">
                 <div class="stat-item">
@@ -248,29 +367,53 @@ const HemoApp = {
   async handleDonorRegistration(e) {
     e.preventDefault();
     const form = e.target;
+    if (!form.reportValidity()) return;
+    const selectedAddress = this.addressPickers.donor.getSelection();
+    if (!selectedAddress) {
+      this.addressPickers.donor.setStatus('Select an address, choose a map pin, and confirm it before registering.');
+      this.addressPickers.donor.searchInput.focus();
+      return;
+    }
     const data = {
-      name: form.name.value,
-      age: form.age.value,
-      gender: form.gender.value,
-      blood_group: form.blood_group.value,
-      city: form.city.value,
-      address: form.address.value,
-      phone: form.phone.value,
-      email: form.email.value,
-      last_donation_date: form.last_donation_date.value,
-      availability_status: form.availability_status.value,
-      prev_donations_count: form.prev_donations_count.value || 0,
-      weight: form.weight.value || 65.0
+      name: form.elements.namedItem('name').value.trim(),
+      age: form.elements.namedItem('age').value,
+      blood_group: form.elements.namedItem('blood_group').value,
+      city: selectedAddress.city || selectedAddress.address,
+      phone: form.elements.namedItem('phone').value.trim(),
+      availability: form.elements.namedItem('availability').value,
+      address: selectedAddress.address,
+      address_confirmed: true,
+      latitude: selectedAddress.latitude,
+      longitude: selectedAddress.longitude,
+      address_confirmed: true,
+      location_sharing: form.elements.namedItem('location_sharing').checked
     };
 
     const res = await API.registerDonor(data);
     if (res.success) {
       alert('🎉 Success! You are now registered as a Life-Saving Donor on HemoConnect!');
       form.reset();
+      this.addressPickers.donor.clearSelection();
+      this.updateLocationSharingControl();
       this.switchTab('donors');
     } else {
       alert('❌ Registration Error: ' + (res.error || 'Failed to register'));
     }
+  },
+
+  async setDonorLocationSharing(donorId, locationSharing) {
+    const checkbox = document.querySelector(`[onchange="HemoApp.setDonorLocationSharing(${donorId}, this.checked)"]`);
+    if (checkbox) checkbox.disabled = true;
+    const res = await API.updateDonorLocationSharing(donorId, locationSharing);
+    if (!res.success) {
+      if (checkbox) {
+        checkbox.checked = !locationSharing;
+        checkbox.disabled = false;
+      }
+      alert(res.error || 'Could not update location sharing.');
+      return;
+    }
+    this.loadDonors();
   },
 
   setupEligibilityLiveChecker() {
@@ -318,29 +461,73 @@ const HemoApp = {
   async handleRequestSubmission(e) {
     e.preventDefault();
     const form = e.target;
+    if (!form.reportValidity()) return;
+    const receiverType = form.elements.namedItem('receiver_type').value;
+    const isHospital = receiverType === 'Hospital';
+    const selectedAddress = this.addressPickers.receiver.getSelection();
+    if (!selectedAddress) {
+      this.addressPickers.receiver.setStatus('Select an address, choose a map pin, and confirm it before submitting.');
+      this.addressPickers.receiver.searchInput.focus();
+      return;
+    }
+    const location = selectedAddress.city || selectedAddress.address;
+    const personName = form.elements.namedItem(isHospital ? 'contact_person' : 'individual_name').value.trim();
+    const requestName = isHospital
+      ? form.elements.namedItem('hospital_name').value.trim()
+      : personName;
+    const now = new Date();
+    const requiredDatetime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 16);
+    const urgencyMap = { Normal: 'NORMAL', Urgent: 'HIGH', Emergency: 'CRITICAL_SOS' };
     const data = {
-      receiver_type: form.receiver_type.value,
-      name: form.name.value,
-      patient_name: form.patient_name.value,
-      blood_group: form.blood_group.value,
-      units_required: form.units_required.value,
-      city: form.city.value,
-      hospital_address: form.hospital_address.value,
-      contact_number: form.contact_number.value,
-      urgency_level: form.urgency_level.value,
-      required_datetime: form.required_datetime.value,
-      reason_medical_notes: form.reason_medical_notes.value,
-      attending_doctor: form.attending_doctor.value
+      receiver_type: receiverType,
+      hospital_name: isHospital ? requestName : '',
+      receiver_name: isHospital ? '' : personName,
+      contact_person: isHospital ? personName : '',
+      individual_name: isHospital ? '' : personName,
+      name: requestName,
+      patient_name: personName,
+      contact_number: form.elements.namedItem('contact_number').value.trim(),
+      blood_group: form.elements.namedItem('blood_group').value,
+      units_required: form.elements.namedItem('units_required').value,
+      location,
+      location_address: selectedAddress.address,
+      address_confirmed: true,
+      latitude: selectedAddress.latitude,
+      longitude: selectedAddress.longitude,
+      address_confirmed: true,
+      city: location,
+      hospital_address: isHospital ? location : '',
+      urgency_level: urgencyMap[form.elements.namedItem('urgency_level').value],
+      required_datetime: requiredDatetime
     };
 
     const res = await API.createRequest(data);
     if (res.success) {
       alert('🚀 Blood Request Broadcasted! AI Matching Engine triggered.');
       form.reset();
+      this.addressPickers.receiver.clearSelection();
       this.triggerMatchingEngine(res.request_id);
     } else {
       alert('❌ Error broadcasting request: ' + (res.error || 'Failed to submit'));
     }
+  },
+
+  updateReceiverFields(receiverType) {
+    const isHospital = receiverType === 'Hospital';
+    const hospitalFields = document.getElementById('hospital-fields');
+    const individualFields = document.getElementById('individual-fields');
+    const commonFields = document.getElementById('common-request-fields');
+    hospitalFields.hidden = !isHospital;
+    individualFields.hidden = isHospital || !receiverType;
+    commonFields.hidden = !receiverType;
+    hospitalFields.querySelectorAll('input').forEach(input => { input.disabled = !isHospital; });
+    individualFields.querySelectorAll('input').forEach(input => { input.disabled = isHospital || !receiverType; });
+    commonFields.querySelectorAll('input, select').forEach(input => { input.disabled = !receiverType; });
+    this.addressPickers.receiver.setEnabled(Boolean(receiverType));
+
+    const locationLabel = document.getElementById('request-location-label');
+    locationLabel.textContent = isHospital ? 'Specific Address *' : 'Current Address *';
   },
 
   async loadMatchingView(requestId = null) {
@@ -383,15 +570,21 @@ const HemoApp = {
     const container = document.getElementById('matching-results-box');
     const req = matchData.request;
     const matches = matchData.top_matches || [];
+    const urgencyLabel = req.urgency_level === 'CRITICAL_SOS' ? 'Emergency' : (req.urgency_level === 'HIGH' ? 'Urgent' : 'Normal');
+    const contactLabel = req.receiver_type === 'Hospital' ? 'Contact Person' : 'Receiver';
+    const receiverHeading = req.receiver_type === 'Hospital' ? req.hospital_name || req.name : req.receiver_name || req.name;
+    const receiverPerson = req.receiver_type === 'Hospital'
+      ? req.contact_person || req.patient_name
+      : req.receiver_name || req.patient_name;
 
     let html = `
       <div class="card" style="margin-bottom: 1.5rem; border-color: var(--primary-red);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <span class="urgency-badge ${req.urgency_level === 'CRITICAL_SOS' ? 'urgency-sos' : 'urgency-high'}">${req.urgency_level}</span>
-            <h2 style="font-size: 1.4rem; margin-top: 0.4rem;">Target Request: ${req.name}</h2>
+            <span class="urgency-badge ${req.urgency_level === 'CRITICAL_SOS' ? 'urgency-sos' : 'urgency-high'}">${urgencyLabel}</span>
+            <h2 style="font-size: 1.4rem; margin-top: 0.4rem;">Target Request: ${receiverHeading}</h2>
             <div style="font-size: 0.88rem; color: var(--text-muted);">
-              Patient: ${req.patient_name || 'N/A'} • Location: ${req.city} • Units Needed: <strong>${req.units_required} unit(s)</strong>
+              ${contactLabel}: ${receiverPerson || 'N/A'} • Location: ${req.location_address || req.city} • Units Needed: <strong>${req.units_required} unit(s)</strong>
             </div>
           </div>
           <div class="blood-badge" style="font-size: 1.3rem; padding: 0.5rem 1rem;">${req.blood_group}</div>
@@ -474,7 +667,10 @@ const HemoApp = {
 
   openSosModal() {
     const modal = document.getElementById('sos-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.classList.add('active');
+      this.refreshVisibleAddressPicker('sos');
+    }
   },
 
   closeSosModal() {
@@ -492,14 +688,29 @@ const HemoApp = {
       alert('Please fill in Hospital Name and Emergency Contact Phone.');
       return;
     }
+    if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+      alert('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+    const selectedAddress = this.addressPickers.sos.getSelection();
+    if (!selectedAddress) {
+      this.addressPickers.sos.setStatus('Select and confirm an emergency address before broadcasting.');
+      alert('Select and confirm the emergency location before broadcasting.');
+      return;
+    }
 
     const data = {
       receiver_type: 'Hospital',
+      hospital_name: name,
       name: name,
       patient_name: 'CRITICAL EMERGENCY TRAUMA PATIENT',
       blood_group: bg,
       units_required: units,
-      city: 'Central City',
+      city: selectedAddress.city || selectedAddress.address,
+      location_address: selectedAddress.address,
+      address_confirmed: true,
+      latitude: selectedAddress.latitude,
+      longitude: selectedAddress.longitude,
       contact_number: phone,
       urgency_level: 'CRITICAL_SOS',
       required_datetime: new Date().toISOString().slice(0, 16),

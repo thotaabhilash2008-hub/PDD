@@ -5,80 +5,110 @@
 const API_BASE = '/api';
 
 const API = {
+  async request(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    const isGuest = Boolean(window.HemoAuth?.isGuest);
+    if (isGuest) {
+      headers.set('X-Hemo-Guest', 'true');
+    } else {
+      let token;
+      try {
+        token = await window.HemoAuth?.getIdToken(true);
+      } catch (error) {
+        console.error('Firebase ID token refresh failed:', { code: error.code || 'token-refresh-failed' });
+        return { success: false, error: 'Your sign-in session could not be refreshed. Please sign out and sign in again.' };
+      }
+      if (!token) {
+        return { success: false, error: 'Sign in is required before using this feature.' };
+      }
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    const result = await response.json();
+    if (response.status === 401 && !isGuest) {
+      console.warn('Protected API rejected Firebase authentication:', { path, status: response.status, error: result.error });
+    }
+    return result;
+  },
+
   // Stats
   async getStats() {
-    const res = await fetch(`${API_BASE}/stats`);
-    return await res.json();
+    return await this.request('/stats');
   },
 
   // Donors
   async getDonors(filters = {}) {
     const query = new URLSearchParams(filters).toString();
-    const res = await fetch(`${API_BASE}/donors?${query}`);
-    return await res.json();
+    return await this.request(`/donors?${query}`);
+  },
+
+  async updateDonorLocationSharing(donorId, locationSharing) {
+    return await this.request(`/donors/${donorId}/location-sharing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location_sharing: locationSharing })
+    });
   },
 
   async registerDonor(data) {
-    const res = await fetch(`${API_BASE}/donors`, {
+    return await this.request('/donors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    return await res.json();
   },
 
   async getDonorDetail(donorId) {
-    const res = await fetch(`${API_BASE}/donors/${donorId}`);
-    return await res.json();
+    return await this.request(`/donors/${donorId}`);
   },
 
   async updateDonorStatus(donorId, statusData) {
-    const res = await fetch(`${API_BASE}/donors/${donorId}/status`, {
+    return await this.request(`/donors/${donorId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(statusData)
     });
-    return await res.json();
   },
 
   // Requests
   async getRequests(filters = {}) {
     const query = new URLSearchParams(filters).toString();
-    const res = await fetch(`${API_BASE}/requests?${query}`);
-    return await res.json();
+    return await this.request(`/requests?${query}`);
   },
 
   async createRequest(data) {
-    const res = await fetch(`${API_BASE}/requests`, {
+    return await this.request('/requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    return await res.json();
   },
 
   async getRequestDetail(requestId) {
-    const res = await fetch(`${API_BASE}/requests/${requestId}`);
-    return await res.json();
+    return await this.request(`/requests/${requestId}`);
   },
 
   // Matching Engine
   async getRequestMatches(requestId) {
-    const res = await fetch(`${API_BASE}/requests/${requestId}/matches`);
-    return await res.json();
+    return await this.request(`/requests/${requestId}/matches`);
+  },
+
+  async searchAddresses(query, around = {}) {
+    const params = new URLSearchParams({ q: query, ...around });
+    return await this.request(`/geocode/search?${params}`);
+  },
+
+  async reverseGeocode(latitude, longitude) {
+    const params = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+    return await this.request(`/geocode/reverse?${params}`);
   },
 
   async pledgeDonor(requestId, donorId, units = 1) {
-    const res = await fetch(`${API_BASE}/requests/${requestId}/pledge`, {
+    return await this.request(`/requests/${requestId}/pledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ donor_id: donorId, units_pledged: units })
     });
-    return await res.json();
-  },
-
-  async resetDatabase() {
-    const res = await fetch(`${API_BASE}/reset-db`, { method: 'POST' });
-    return await res.json();
   }
 };

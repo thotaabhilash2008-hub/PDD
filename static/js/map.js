@@ -1,150 +1,421 @@
 /* ==========================================================================
-   HemoConnect Interactive Map & Radar Visualizer Module
+   HemoConnect Leaflet map and address picker
    ========================================================================== */
+
+const MAP_DEFAULT_CENTER = [20.5937, 78.9629];
+
+function getCoordinates(record) {
+  if (record?.latitude === null || record?.latitude === undefined || record?.latitude === '' || record?.longitude === null || record?.longitude === undefined || record?.longitude === '') return null;
+  const latitude = Number(record?.latitude);
+  const longitude = Number(record?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return [latitude, longitude];
+}
+
+function distanceBetween(first, second) {
+  const radians = value => value * Math.PI / 180;
+  const [lat1, lon1] = first.map(radians);
+  const [lat2, lon2] = second.map(radians);
+  const deltaLat = lat2 - lat1;
+  const deltaLon = lon2 - lon1;
+  const arc = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
+}
+
+function makePopup(title, details) {
+  const content = document.createElement('div');
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  content.append(heading);
+  details.forEach(detail => {
+    const line = document.createElement('div');
+    line.textContent = detail;
+    content.append(line);
+  });
+  return content;
+}
 
 class HemoMap {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
-    this.svg = null;
-    this.centerLat = 12.9716;
-    this.centerLon = 77.5946;
-    this.zoom = 12000; // SVG scale
+    this.map = null;
+    this.markers = null;
+    this.vectors = null;
   }
 
   init() {
-    if (!this.container) return;
-    this.container.innerHTML = `
-      <svg id="hemo-svg-map" width="100%" height="100%" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice" style="background:#060911;">
-        <defs>
-          <radialGradient id="grid-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ef4444" stop-opacity="0.15"/>
-            <stop offset="100%" stop-color="#060911" stop-opacity="0"/>
-          </radialGradient>
-          <radialGradient id="hospital-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ff2e55" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#ff2e55" stop-opacity="0"/>
-          </radialGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
+    if (!this.container) return false;
+    if (!window.L) {
+      this.container.textContent = 'The map could not load. Check your connection and try again.';
+      return false;
+    }
+    if (this.map) return true;
 
-        <!-- Grid Lines -->
-        <g stroke="rgba(255,255,255,0.04)" stroke-width="1">
-          <line x1="0" y1="100" x2="800" y2="100" />
-          <line x1="0" y1="200" x2="800" y2="200" />
-          <line x1="0" y1="300" x2="800" y2="300" />
-          <line x1="200" y1="0" x2="200" y2="400" />
-          <line x1="400" y1="0" x2="400" y2="400" />
-          <line x1="600" y1="0" x2="600" y2="400" />
-        </g>
-
-        <!-- Radar Pulse Background -->
-        <circle cx="400" cy="200" r="180" fill="url(#grid-glow)" />
-        <circle cx="400" cy="200" r="120" stroke="rgba(239,68,68,0.15)" stroke-width="1" fill="none" stroke-dasharray="4,4" />
-        <circle cx="400" cy="200" r="220" stroke="rgba(239,68,68,0.1)" stroke-width="1" fill="none" />
-
-        <!-- Vectors Layer -->
-        <g id="map-vectors"></g>
-
-        <!-- Markers Layer -->
-        <g id="map-markers"></g>
-      </svg>
-    `;
-    this.svg = document.getElementById('hemo-svg-map');
+    this.map = window.L.map(this.container, { zoomControl: true }).setView(MAP_DEFAULT_CENTER, 5);
+    this.tileLayer = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).addTo(this.map);
+    this.tileLayer.on('tileerror', () => this.showTileWarning());
+    this.markers = window.L.layerGroup().addTo(this.map);
+    this.vectors = window.L.layerGroup().addTo(this.map);
+    return true;
   }
 
-  // Convert GPS (Lat, Lon) to Canvas (x, y) coordinates
-  gpsToXY(lat, lon) {
-    const x = 400 + (lon - this.centerLon) * 3500;
-    const y = 200 - (lat - this.centerLat) * 3500;
-    return { 
-      x: Math.max(40, Math.min(760, x)), 
-      y: Math.max(40, Math.min(360, y)) 
-    };
+  showTileWarning() {
+    if (this.container.querySelector('.map-tile-warning')) return;
+    const warning = document.createElement('p');
+    warning.className = 'map-tile-warning';
+    warning.textContent = 'Street map tiles are unavailable. Check your connection and try again.';
+    this.container.append(warning);
   }
 
   renderData(requests = [], donors = [], activeRequestMatches = null) {
-    if (!this.svg) this.init();
+    if (!this.init()) return;
+    this.map.invalidateSize();
+    this.markers.clearLayers();
+    this.vectors.clearLayers();
+    const bounds = [];
+    const visibleDonors = donors.filter(donor => donor.location_sharing === true && getCoordinates(donor));
 
-    const vectorsGroup = document.getElementById('map-vectors');
-    const markersGroup = document.getElementById('map-markers');
-
-    if (!vectorsGroup || !markersGroup) return;
-
-    vectorsGroup.innerHTML = '';
-    markersGroup.innerHTML = '';
-
-    // Render Donors
-    donors.forEach(donor => {
-      const { x, y } = this.gpsToXY(donor.latitude, donor.longitude);
-      const isAvailable = donor.availability_status === 'Available';
-      const color = isAvailable ? '#10b981' : '#f59e0b';
-
-      markersGroup.innerHTML += `
-        <g class="map-node donor-node" transform="translate(${x}, ${y})" style="cursor:pointer;" title="${donor.name} (${donor.blood_group})">
-          <circle r="8" fill="${color}" fill-opacity="0.3" />
-          <circle r="5" fill="${color}" />
-          <text x="9" y="3" fill="#9ca3af" font-size="10" font-family="Outfit, sans-serif" font-weight="600">${donor.name.split(' ')[0]} (${donor.blood_group})</text>
-        </g>
-      `;
-    });
-
-    // Render Requests / Hospitals
-    requests.forEach(req => {
-      const { x, y } = this.gpsToXY(req.latitude, req.longitude);
-      const isCritical = req.urgency_level === 'CRITICAL_SOS';
-      const color = isCritical ? '#ff2e55' : '#3b82f6';
-
-      // SOS Pulse Ring
-      if (isCritical) {
-        markersGroup.innerHTML += `
-          <circle cx="${x}" cy="${y}" r="22" fill="none" stroke="#ff2e55" stroke-width="1.5" opacity="0.6">
-            <animate attributeName="r" values="10;30;10" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.8;0;0.8" dur="2s" repeatCount="indefinite"/>
-          </circle>
-        `;
-      }
-
-      markersGroup.innerHTML += `
-        <g class="map-node hospital-node" transform="translate(${x}, ${y})" style="cursor:pointer;" filter="url(#glow)">
-          <rect x="-10" y="-10" width="20" height="20" rx="4" fill="${color}" />
-          <text x="0" y="4" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle">🏥</text>
-          <text x="14" y="3" fill="#ffffff" font-size="11" font-family="Outfit, sans-serif" font-weight="700">${req.name} [${req.blood_group}]</text>
-        </g>
-      `;
-    });
-
-    // Render Connection Vectors for active matched request
-    if (activeRequestMatches && activeRequestMatches.top_matches) {
-      const targetReq = activeRequestMatches.request;
-      const reqPos = this.gpsToXY(targetReq.latitude, targetReq.longitude);
-
-      activeRequestMatches.top_matches.slice(0, 5).forEach((match, idx) => {
-        const donor = donors.find(d => d.id === match.donor_id);
-        if (donor) {
-          const donorPos = this.gpsToXY(donor.latitude, donor.longitude);
-          const strokeColor = idx === 0 ? '#10b981' : '#3b82f6';
-          const dash = idx === 0 ? 'none' : '4,4';
-
-          vectorsGroup.innerHTML += `
-            <line x1="${reqPos.x}" y1="${reqPos.y}" x2="${donorPos.x}" y2="${donorPos.y}" 
-                  stroke="${strokeColor}" stroke-width="${idx === 0 ? 2.5 : 1.5}" stroke-dasharray="${dash}" opacity="0.85">
-              <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite" />
-            </line>
-            <text x="${(reqPos.x + donorPos.x)/2}" y="${(reqPos.y + donorPos.y)/2 - 5}" 
-                  fill="${strokeColor}" font-size="9" font-weight="700" text-anchor="middle">
-              ${match.distance_km} km (${match.match_score}%)
-            </text>
-          `;
-        }
+    visibleDonors.forEach(donor => {
+      const coordinates = getCoordinates(donor);
+      const color = donor.availability_status === 'Available' ? '#059669' : '#d97706';
+      const marker = window.L.circleMarker(coordinates, {
+        radius: 7,
+        color,
+        fillColor: color,
+        fillOpacity: 0.85,
+        weight: 2
       });
+      marker.bindPopup(makePopup(`${donor.name} (approximate location)`, [
+        `${donor.blood_group} · ${donor.availability_status}`,
+        donor.city || ''
+      ].filter(Boolean)));
+      marker.addTo(this.markers);
+      bounds.push(coordinates);
+    });
+
+    requests.filter(request => (request.status === 'ACTIVE' || !request.status) && (request.coordinates_confirmed === true || request.coordinates_confirmed === 1)).forEach(request => {
+      const coordinates = getCoordinates(request);
+      if (!coordinates) return;
+      const emergency = request.urgency_level === 'CRITICAL_SOS';
+      const marker = window.L.circleMarker(coordinates, {
+        radius: emergency ? 10 : 8,
+        color: emergency ? '#dc2626' : '#2563eb',
+        fillColor: emergency ? '#ef4444' : '#3b82f6',
+        fillOpacity: 0.9,
+        weight: 2
+      });
+      marker.bindPopup(makePopup(request.hospital_name || request.receiver_name || request.name || 'Blood request', [
+        `${request.blood_group} · ${request.units_required} unit(s)`,
+        request.location_address || request.city || '',
+        emergency ? 'Emergency' : request.urgency_level
+      ].filter(Boolean)));
+      marker.addTo(this.markers);
+      bounds.push(coordinates);
+    });
+
+    if (activeRequestMatches?.request && activeRequestMatches.top_matches) {
+      const requestPoint = getCoordinates(activeRequestMatches.request);
+      if (requestPoint) {
+        activeRequestMatches.top_matches.slice(0, 5).forEach(match => {
+          const donor = visibleDonors.find(item => item.id === match.donor_id);
+          const donorPoint = donor && getCoordinates(donor);
+          if (donorPoint) {
+            window.L.polyline([requestPoint, donorPoint], {
+              color: '#059669', weight: 2, opacity: 0.75, dashArray: '6 7'
+            }).addTo(this.vectors);
+          }
+        });
+      }
     }
+
+    if (bounds.length === 1) this.map.setView(bounds[0], 13);
+    else if (bounds.length > 1) this.map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 });
+  }
+
+  renderNearbyDonors(request, donors, container) {
+    if (!container) return [];
+    const requestPoint = (request.coordinates_confirmed === true || request.coordinates_confirmed === 1) && getCoordinates(request);
+    if (!requestPoint) {
+      container.textContent = 'This request has no confirmed map location, so nearby distances are unavailable.';
+      return [];
+    }
+
+    const nearby = donors
+      .filter(donor => donor.location_sharing === true && donor.is_eligible && donor.availability_status === 'Available' && getCoordinates(donor))
+      .map(donor => ({ donor, distance: distanceBetween(requestPoint, getCoordinates(donor)) }))
+      .filter(item => item.distance <= 50)
+      .sort((first, second) => first.distance - second.distance)
+      .slice(0, 8);
+
+    container.replaceChildren();
+    if (!nearby.length) {
+      container.textContent = 'No nearby eligible donors have opted in to approximate location sharing.';
+      return [];
+    }
+
+    nearby.forEach(({ donor, distance }) => {
+      const item = document.createElement('div');
+      item.className = 'nearby-donor-item';
+      item.textContent = `${donor.name} · ${donor.blood_group} · about ${distance.toFixed(1)} km · approximate location`;
+      container.append(item);
+    });
+    return nearby;
+  }
+
+  refresh() {
+    if (this.map) requestAnimationFrame(() => this.map.invalidateSize());
+  }
+}
+
+class HemoAddressPicker {
+  constructor(root) {
+    this.root = root;
+    this.searchInput = root.querySelector('[data-address-search]');
+    this.suggestions = root.querySelector('[data-address-suggestions]');
+    this.mapElement = root.querySelector('[data-address-map]');
+    this.status = root.querySelector('[data-address-status]');
+    this.selectedLabel = root.querySelector('[data-selected-address]');
+    this.confirmation = root.querySelector('[data-confirm-address]');
+    this.currentLocationButton = root.querySelector('[data-use-current-location]');
+    this.addressInput = root.querySelector('[name="address"], [name="location_address"]');
+    this.cityInput = root.querySelector('[name="city"]');
+    this.latitudeInput = root.querySelector('[name="latitude"]');
+    this.longitudeInput = root.querySelector('[name="longitude"]');
+    this.map = null;
+    this.pin = null;
+    this.selected = null;
+    this.searchTimer = null;
+    this.searchSequence = 0;
+    this.reverseSequence = 0;
+    this.initialize();
+  }
+
+  initialize() {
+    this.searchInput.addEventListener('input', () => this.queueSearch());
+    this.currentLocationButton.addEventListener('click', () => this.useCurrentLocation());
+    this.confirmation.addEventListener('change', () => this.updateConfirmation());
+    this.suggestions.addEventListener('click', event => {
+      const button = event.target.closest('[data-result-index]');
+      if (!button) return;
+      this.chooseResult(this.results[Number(button.dataset.resultIndex)]);
+    });
+    if (!window.L) {
+      this.mapElement.textContent = 'Map tiles are unavailable. Address search and browser GPS can still be used.';
+      this.setStatus('The interactive map did not load. Search an address or use GPS instead.');
+      this.setEnabled(!this.root.closest('#common-request-fields'));
+      return;
+    }
+
+    this.map = window.L.map(this.mapElement).setView(MAP_DEFAULT_CENTER, 5);
+    this.tileLayer = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).addTo(this.map);
+    this.tileLayer.on('tileerror', () => this.setStatus('Street map tiles are unavailable. Address search and GPS can still be used.'));
+    this.map.on('click', event => this.placePin(event.latlng));
+    this.setEnabled(!this.root.closest('#common-request-fields'));
+  }
+
+  refresh() {
+    if (this.map) requestAnimationFrame(() => this.map.invalidateSize());
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled;
+    this.searchInput.disabled = !enabled;
+    this.currentLocationButton.disabled = !enabled;
+    this.confirmation.disabled = !enabled || !this.selected;
+    this.mapElement.classList.toggle('address-picker-disabled', !enabled);
+    if (enabled && this.map) requestAnimationFrame(() => this.map.invalidateSize());
+    if (!enabled) this.clearSelection();
+  }
+
+  setStatus(message) {
+    this.status.textContent = message;
+  }
+
+  isConfirmed() {
+    return Boolean(
+      this.enabled && this.selected && this.confirmation.checked &&
+      this.latitudeInput.value && this.longitudeInput.value && this.addressInput.value
+    );
+  }
+
+  getSelection() {
+    if (!this.isConfirmed()) return null;
+    return {
+      ...this.selected,
+      address_confirmed: true,
+      latitude: Number(this.latitudeInput.value),
+      longitude: Number(this.longitudeInput.value)
+    };
+  }
+
+  updateConfirmation() {
+    if (this.confirmation.checked && this.selected) {
+      this.setStatus('Address confirmed. You can change the pin or search again before submitting.');
+    }
+  }
+
+  clearSelection({ removePin = true, clearSearch = true } = {}) {
+    this.selected = null;
+    this.confirmation.checked = false;
+    this.confirmation.disabled = true;
+    if (clearSearch) this.searchInput.value = '';
+    if (removePin && this.pin) {
+      this.map?.removeLayer(this.pin);
+      this.pin = null;
+    }
+    this.hideSuggestions();
+    this.addressInput.value = '';
+    this.cityInput.value = '';
+    this.latitudeInput.value = '';
+    this.longitudeInput.value = '';
+    this.selectedLabel.textContent = 'No address selected.';
+  }
+
+  queueSearch() {
+    clearTimeout(this.searchTimer);
+    const query = this.searchInput.value.trim();
+    if (query.length < 3) {
+      this.hideSuggestions();
+      return;
+    }
+    this.searchTimer = setTimeout(() => this.search(query), 400);
+  }
+
+  async search(query) {
+    const sequence = ++this.searchSequence;
+    const mapCenter = this.map?.getCenter();
+    const filters = mapCenter ? { latitude: mapCenter.lat, longitude: mapCenter.lng } : {};
+    this.setStatus('Searching OpenStreetMap addresses…');
+    let response;
+    try {
+      response = await API.searchAddresses(query, filters);
+    } catch (error) {
+      this.setStatus('Address search is unavailable. Check your connection or choose a map pin.');
+      this.hideSuggestions();
+      return;
+    }
+    if (sequence !== this.searchSequence) return;
+    if (!response.success) {
+      this.setStatus(response.error || 'Address search is temporarily unavailable.');
+      this.hideSuggestions();
+      return;
+    }
+    this.results = response.results || [];
+    this.suggestions.replaceChildren();
+    this.results.forEach((result, index) => {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.resultIndex = String(index);
+      button.textContent = result.address;
+      item.append(button);
+      this.suggestions.append(item);
+    });
+    this.suggestions.hidden = !this.results.length;
+    this.setStatus(this.results.length ? 'Choose the matching address from the suggestions.' : 'No addresses found. Try a nearby street, landmark, or PIN code.');
+  }
+
+  hideSuggestions() {
+    this.suggestions.hidden = true;
+    this.suggestions.replaceChildren();
+  }
+
+  chooseResult(result) {
+    if (!result) return;
+    this.hideSuggestions();
+    this.searchInput.value = result.address;
+    this.selectAddress(result, [result.latitude, result.longitude]);
+    if (this.map) this.map.setView([result.latitude, result.longitude], 16);
+  }
+
+  selectAddress(result, coordinates) {
+    this.selected = { address: result.address, city: result.city || '' };
+    this.addressInput.value = result.address;
+    this.cityInput.value = result.city || '';
+    this.latitudeInput.value = String(coordinates[0]);
+    this.longitudeInput.value = String(coordinates[1]);
+    this.selectedLabel.textContent = result.address;
+    this.confirmation.checked = false;
+    this.confirmation.disabled = false;
+    this.setStatus('Confirm this address before submitting. You can move the pin to adjust its location.');
+    this.putPin(coordinates);
+  }
+
+  putPin(coordinates) {
+    if (!this.map) return;
+    if (!this.pin) {
+      this.pin = window.L.marker(coordinates, { draggable: true }).addTo(this.map);
+      this.pin.on('dragend', () => this.reversePin());
+    } else {
+      this.pin.setLatLng(coordinates);
+    }
+  }
+
+  async placePin(latlng) {
+    if (!this.enabled) return;
+    this.clearSelection({ removePin: false });
+    const coordinates = [latlng.lat, latlng.lng];
+    this.putPin(coordinates);
+    this.searchInput.value = '';
+    this.setStatus('Looking up the address at the selected pin…');
+    await this.reversePin(coordinates);
+  }
+
+  async reversePin(coordinates = null) {
+    const sequence = ++this.reverseSequence;
+    const point = coordinates || (this.pin && [this.pin.getLatLng().lat, this.pin.getLatLng().lng]);
+    if (!point) return;
+    this.clearSelection({ removePin: false });
+    this.setStatus('Looking up the address at the selected pin…');
+    let response;
+    try {
+      response = await API.reverseGeocode(point[0], point[1]);
+    } catch (error) {
+      this.setStatus('Address lookup is unavailable. Try searching for the address instead.');
+      return;
+    }
+    if (sequence !== this.reverseSequence) return;
+    if (!response.success || !response.result) {
+      this.setStatus(response.error || 'No address found near this pin. Move it closer to a mapped street or building.');
+      return;
+    }
+    this.selectAddress(response.result, point);
+    this.searchInput.value = response.result.address;
+  }
+
+  useCurrentLocation() {
+    if (!navigator.geolocation) {
+      this.setStatus('This browser does not support GPS location. Search for an address or choose a map pin.');
+      return;
+    }
+    this.currentLocationButton.disabled = true;
+    this.setStatus('Waiting for browser location permission…');
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        this.currentLocationButton.disabled = !this.enabled;
+        const point = [position.coords.latitude, position.coords.longitude];
+        if (this.map) this.map.setView(point, 16);
+        this.putPin(point);
+        this.reversePin(point);
+      },
+      error => {
+        this.currentLocationButton.disabled = !this.enabled;
+        const message = error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Search for an address or choose a map pin instead.'
+          : 'Could not read your location. Search for an address or choose a map pin instead.';
+        this.setStatus(message);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
   }
 }
 
 window.HemoMap = HemoMap;
+window.HemoAddressPicker = HemoAddressPicker;

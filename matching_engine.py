@@ -20,12 +20,16 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     on the earth specified in decimal degrees.
     """
     if None in (lat1, lon1, lat2, lon2):
-        return 5.0  # Default fallback distance in km if coordinates missing
+        return None
         
     try:
         lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
     except (ValueError, TypeError):
-        return 5.0
+        return None
+    if not all(math.isfinite(value) for value in (lat1, lon1, lat2, lon2)):
+        return None
+    if not (-90 <= lat1 <= 90 and -90 <= lat2 <= 90 and -180 <= lon1 <= 180 and -180 <= lon2 <= 180):
+        return None
 
     # Convert decimal degrees to radians
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
@@ -127,6 +131,8 @@ def match_donor_to_request(donor, request):
     u_lon = donor.get('longitude')
     
     dist_km = haversine_distance(d_lat, d_lon, u_lat, u_lon)
+    if dist_km is None:
+        return None
     dist_score = calculate_distance_score(dist_km)
     
     # Estimated transit time assuming average city transit speed (~25 km/h + 10 min prep)
@@ -186,7 +192,7 @@ def match_donor_to_request(donor, request):
         'is_eligible': is_eligible,
         'eligibility_msg': elig_msg,
         'days_until_eligible': days_until,
-        'distance_km': dist_km,
+        'distance_km': round(dist_km, 1),
         'eta_minutes': eta_minutes,
         'match_score': final_score,
         'badge': badge,

@@ -1,6 +1,5 @@
 import sqlite3
 import os
-from datetime import datetime, date, timedelta
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'hemoconnect.db')
 
@@ -25,6 +24,9 @@ def init_db():
         address TEXT,
         latitude REAL,
         longitude REAL,
+        location_sharing INTEGER NOT NULL DEFAULT 0,
+        coordinates_confirmed INTEGER NOT NULL DEFAULT 0,
+        owner_uid TEXT,
         phone TEXT NOT NULL,
         email TEXT,
         last_donation_date TEXT,
@@ -42,14 +44,19 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         receiver_type TEXT NOT NULL, -- 'Hospital', 'Individual', 'Authorized Representative'
         name TEXT NOT NULL, -- Hospital Name or Requester Name
+        hospital_name TEXT,
+        receiver_name TEXT,
+        contact_person TEXT,
         patient_name TEXT,
         blood_group TEXT NOT NULL,
         units_required INTEGER NOT NULL DEFAULT 1,
         units_fulfilled INTEGER DEFAULT 0,
         city TEXT NOT NULL,
         hospital_address TEXT,
+        location_address TEXT,
         latitude REAL,
         longitude REAL,
+        coordinates_confirmed INTEGER NOT NULL DEFAULT 0,
         contact_number TEXT NOT NULL,
         alt_contact TEXT,
         urgency_level TEXT NOT NULL DEFAULT 'NORMAL', -- 'CRITICAL_SOS', 'HIGH', 'NORMAL'
@@ -59,6 +66,22 @@ def init_db():
         status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'FULFILLED', 'CANCELLED'
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+    ''')
+
+    request_columns = {row['name'] for row in cursor.execute('PRAGMA table_info(requests)')}
+    for column in ('hospital_name', 'receiver_name', 'contact_person'):
+        if column not in request_columns:
+            cursor.execute(f'ALTER TABLE requests ADD COLUMN {column} TEXT')
+
+    cursor.execute('''
+    UPDATE requests
+    SET hospital_name = COALESCE(hospital_name,
+            CASE WHEN receiver_type = 'Hospital' THEN NULLIF(name, '') END),
+        receiver_name = COALESCE(receiver_name,
+            CASE WHEN receiver_type != 'Hospital' THEN COALESCE(NULLIF(patient_name, ''), NULLIF(name, '')) END),
+        contact_person = COALESCE(contact_person,
+            CASE WHEN receiver_type = 'Hospital' THEN NULLIF(patient_name, '') END)
+    WHERE hospital_name IS NULL OR receiver_name IS NULL OR contact_person IS NULL
     ''')
 
     # Pledges Table
@@ -75,58 +98,36 @@ def init_db():
     )
     ''')
 
-    conn.commit()
-    
-    # Check if empty, then seed default data
-    cursor.execute("SELECT COUNT(*) as count FROM donors")
-    if cursor.fetchone()['count'] == 0:
-        seed_db_data(conn)
-    else:
-        conn.close()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_profiles (
+        firebase_uid TEXT PRIMARY KEY,
+        email TEXT,
+        display_name TEXT,
+        phone_number TEXT,
+        sign_in_provider TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
 
-def seed_db_data(conn=None):
-    close_at_end = False
-    if conn is None:
-        conn = get_db_connection()
-        close_at_end = True
-        
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM pledges")
-    cursor.execute("DELETE FROM requests")
-    cursor.execute("DELETE FROM donors")
+    donor_columns = {row['name'] for row in cursor.execute('PRAGMA table_info(donors)')}
+    if 'location_sharing' not in donor_columns:
+        cursor.execute('ALTER TABLE donors ADD COLUMN location_sharing INTEGER NOT NULL DEFAULT 0')
+    if 'coordinates_confirmed' not in donor_columns:
+        cursor.execute('ALTER TABLE donors ADD COLUMN coordinates_confirmed INTEGER NOT NULL DEFAULT 0')
+    if 'owner_uid' not in donor_columns:
+        cursor.execute('ALTER TABLE donors ADD COLUMN owner_uid TEXT')
 
-    today = date.today()
-    
-    # Sample Donors (Central Metro Area reference coords: Lat 12.9716, Lon 77.5946)
-    
+    request_columns = {row['name'] for row in cursor.execute('PRAGMA table_info(requests)')}
+    if 'location_address' not in request_columns:
+        cursor.execute('ALTER TABLE requests ADD COLUMN location_address TEXT')
+    if 'coordinates_confirmed' not in request_columns:
+        cursor.execute('ALTER TABLE requests ADD COLUMN coordinates_confirmed INTEGER NOT NULL DEFAULT 0')
 
-    cursor.executemany('''
-    INSERT INTO donors (
-        name, age, gender, blood_group, city, address, latitude, longitude,
-        phone, email, last_donation_date, availability_status, prev_donations_count,
-        weight, medical_notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', donors_data)
-
-    # Sample Requests
-    req_time_emergency = (datetime.now() + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M")
-    req_time_high = (datetime.now() + timedelta(hours=8)).strftime("%Y-%m-%dT%H:%M")
-    req_time_normal = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
-
-    
-
-    cursor.executemany('''
-    INSERT INTO requests (
-        receiver_type, name, patient_name, blood_group, units_required, units_fulfilled,
-        city, hospital_address, latitude, longitude, contact_number, alt_contact,
-        urgency_level, required_datetime, reason_medical_notes, attending_doctor, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', requests_data)
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_donors_location_sharing ON donors (location_sharing, coordinates_confirmed, latitude, longitude)')
 
     conn.commit()
-    if close_at_end:
-        conn.close()
-    print("HemoConnect Database initialized and seeded with sample data.")
+    conn.close()
 
 if __name__ == '__main__':
     init_db()
