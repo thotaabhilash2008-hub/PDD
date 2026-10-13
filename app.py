@@ -388,6 +388,7 @@ def register_donor():
         phone, email, last_donation_date, availability_status, prev_donations_count,
         weight, medical_notes
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING id
     ''', (
         data['name'].strip(),
         age,
@@ -409,7 +410,7 @@ def register_donor():
         data.get('medical_notes', '').strip()
     ))
     
-    donor_id = cursor.lastrowid
+    donor_id = cursor.fetchone()['id']
     conn.commit()
     conn.close()
 
@@ -603,6 +604,7 @@ def create_request():
         latitude, longitude, contact_number, alt_contact,
         urgency_level, required_datetime, reason_medical_notes, attending_doctor, status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING id
     ''', (
         receiver_type,
         receiver_name,
@@ -628,7 +630,7 @@ def create_request():
         'ACTIVE'
     ))
 
-    request_id = cursor.lastrowid
+    request_id = cursor.fetchone()['id']
     conn.commit()
     conn.close()
 
@@ -721,57 +723,104 @@ def get_request_donor_matches(request_id):
     })
 
 
+
 @app.route('/api/requests/<int:request_id>/pledge', methods=['POST'])
 def pledge_donor_to_request(request_id):
     data = request.json or {}
     donor_id = data.get('donor_id')
-    units = int(data.get('units_pledged', 1))
+
+    try:
+        units = int(data.get('units_pledged', 1))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Units must be a positive whole number.'}), 400
 
     if not donor_id:
         return jsonify({'success': False, 'error': 'donor_id is required'}), 400
 
+    if units < 1:
+        return jsonify({'success': False, 'error': 'Units must be at least 1.'}), 400
+
     conn = get_db_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM requests WHERE id = ?", (request_id,))
-    req = cursor.fetchone()
-    if not req:
+    try:
+        cursor = conn.cursor()
+
+        # Lock the request row in PostgreSQL to prevent concurrent overcounting.
+        if getattr(conn, 'is_postgres', False):
+            cursor.execute(
+                "SELECT * FROM requests WHERE id = ? FOR UPDATE",
+                (request_id,)
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM requests WHERE id = ?",
+                (request_id,)
+            )
+
+        req = cursor.fetchone()
+
+        if not req:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+
+        cursor.execute("SELECT id FROM donors WHERE id = ?", (donor_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Donor not found'}), 404
+
+        if req['status'] != 'ACTIVE':
+            conn.close()
+            return jsonify({'success': False, 'error': 'This request is no longer active.'}), 409
+
+        remaining = req['units_required'] - req['units_fulfilled']
+        if units > remaining:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': f'Only {remaining} unit(s) remain to be fulfilled.'
+            }), 400
+
+        cursor.execute('''
+            INSERT INTO pledges (request_id, donor_id, units_pledged, status)
+            VALUES (?, ?, ?, 'PLEDGED')
+        ''', (request_id, donor_id, units))
+
+        new_fulfilled = req['units_fulfilled'] + units
+        new_status = (
+            'FULFILLED'
+            if new_fulfilled >= req['units_required']
+            else 'ACTIVE'
+        )
+
+        cursor.execute('''
+            UPDATE requests
+            SET units_fulfilled = ?, status = ?
+            WHERE id = ?
+        ''', (new_fulfilled, new_status, request_id))
+
+        cursor.execute('''
+            UPDATE donors
+            SET prev_donations_count = prev_donations_count + 1
+            WHERE id = ?
+        ''', (donor_id,))
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Pledge of {units} unit(s) recorded successfully!',
+            'units_fulfilled': new_fulfilled,
+            'units_required': req['units_required'],
+            'request_status': new_status
+        })
+
+    except Exception:
+        conn.conn.rollback()
+        raise
+
+    finally:
         conn.close()
-        return jsonify({'success': False, 'error': 'Request not found'}), 404
 
-    # Insert Pledge
-    cursor.execute('''
-    INSERT INTO pledges (request_id, donor_id, units_pledged, status)
-    VALUES (?, ?, ?, 'PLEDGED')
-    ''', (request_id, donor_id, units))
-
-    # Update request fulfilled units
-    new_fulfilled = req['units_fulfilled'] + units
-    new_status = 'FULFILLED' if new_fulfilled >= req['units_required'] else 'ACTIVE'
-
-    cursor.execute('''
-    UPDATE requests 
-    SET units_fulfilled = ?, status = ? 
-    WHERE id = ?
-    ''', (new_fulfilled, new_status, request_id))
-
-    # Update donor pledge stats & last donation date record option
-    cursor.execute('''
-    UPDATE donors 
-    SET prev_donations_count = prev_donations_count + 1 
-    WHERE id = ?
-    ''', (donor_id,))
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({
-        'success': True,
-        'message': f"Pledge of {units} unit(s) recorded successfully!",
-        'units_fulfilled': new_fulfilled,
-        'units_required': req['units_required'],
-        'request_status': new_status
-    })
 
 # ==================== PLATFORM STATS & RESET ====================
 
