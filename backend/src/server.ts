@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import { matchDonors, BloodGroup, calculateDistance } from "./controllers/matching";
 import { runAiGateway } from "./utils/ai_runner";
 import { adminRouter, getDb } from "./controllers/adminDb";
+import { getAiMatchingAgent } from "./controllers/aiMatchingAgent";
 
 dotenv.config();
 
@@ -476,6 +477,101 @@ app.get("/api/wearable/:donorId", (req: Request, res: Response) => {
     updatedAt: new Date().toISOString()
   });
 });
+
+// --- 17. Autonomous AI Blood Donor & Requester Matching Agent Endpoints ---
+const aiMatchingAgent = getAiMatchingAgent(io);
+
+// Get AI Agent operational status & telemetry
+app.get("/api/ai-agent/status", (req: Request, res: Response) => {
+  res.json(aiMatchingAgent.getStatus());
+});
+
+// Toggle Autonomous Matching Loop
+app.post("/api/ai-agent/toggle-autonomous", (req: Request, res: Response) => {
+  const { state } = req.body;
+  const isAutonomous = aiMatchingAgent.toggleAutonomous(state);
+  res.json({ success: true, isAutonomous });
+});
+
+// Solve a specific patient blood request using AI Agent
+app.post("/api/ai-agent/solve-request", async (req: Request, res: Response) => {
+  const { requestId } = req.body;
+  if (!requestId) {
+    return res.status(400).json({ error: "Missing required parameter: requestId" });
+  }
+  try {
+    const resolution = await aiMatchingAgent.solveBloodRequest(requestId);
+    if (!resolution) {
+      return res.status(404).json({ error: `Request ${requestId} not found in database.` });
+    }
+    return res.json({ success: true, resolution });
+  } catch (err: any) {
+    console.error("AI Agent Solve Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Auto-solve all unresolved requests in the database
+app.post("/api/ai-agent/auto-solve-all", async (req: Request, res: Response) => {
+  try {
+    const result = await aiMatchingAgent.autoSolveAllPending();
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("AI Agent Auto-Solve Batch Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Simulate an emergency critical patient request and immediately solve it with AI
+app.post("/api/ai-agent/simulate-emergency", async (req: Request, res: Response) => {
+  const { bloodGroup, hospitalName, patientCondition } = req.body;
+  const db = getDb();
+  const newId = `req-sos-${Date.now()}`;
+  const now = new Date().toISOString();
+  const bg = bloodGroup || "O-";
+  const hosp = hospitalName || "Fortis Trauma & Intensive Care Center";
+
+  const newRequest: any = {
+    id: newId,
+    patientName: `CRITICAL TRAUMA PATIENT (${bg})`,
+    patientCondition: patientCondition || "Acute Hemorrhagic Shock - Immediate Blood Requirement",
+    bloodGroup: bg.replace("+", "_POSITIVE").replace("-", "_NEGATIVE"),
+    volumeMl: 900,
+    priority: "CRITICAL",
+    urgency: "Emergency",
+    status: "MATCHING",
+    hospitalName: hosp,
+    location: hosp,
+    latitude: 12.9716,
+    longitude: 77.5946,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  db.bloodRequests.unshift(newRequest);
+
+  // Instantly solve with the AI Matching Agent!
+  const resolution = await aiMatchingAgent.solveBloodRequest(newId);
+
+  return res.status(201).json({
+    success: true,
+    message: "Critical patient emergency created and autonomously solved by AI Agent.",
+    request: newRequest,
+    resolution
+  });
+});
+
+// Background Autonomous Matching Daemon Loop (runs every 10 seconds)
+setInterval(async () => {
+  if (aiMatchingAgent.getStatus().isAutonomous) {
+    const db = getDb();
+    const pendingCount = db.bloodRequests.filter(r => r.status === "PENDING" || r.status === "MATCHING").length;
+    if (pendingCount > 0) {
+      console.log(`[AI-AGENT-DAEMON] Detected ${pendingCount} unfulfilled patient requests. Running autonomous matching sweep...`);
+      await aiMatchingAgent.autoSolveAllPending();
+    }
+  }
+}, 10000);
 
 // WebSockets for Real-Time Coordinates Streaming
 io.on("connection", (socket) => {

@@ -12,6 +12,7 @@ import {
 import AdminPanel from "./components/AdminPanel";
 import Landing3DStory from "./components/Landing3DStory";
 import ThreeBloodDropHero from "./components/ThreeBloodDropHero";
+import AiMatchingAgentConsole from "./components/AiMatchingAgentConsole";
 
 const API_BASE = "http://localhost:4000";
 
@@ -486,7 +487,7 @@ export default function App() {
     { id: "map", label: "GIS Radar", category: "Core Operations", icon: Globe },
     { id: "donate", label: "Donor Network", category: "Core Operations", icon: Heart },
     { id: "request", label: "Request Portal", category: "Core Operations", icon: Search },
-    { id: "inbox", label: "Matching Engine", category: "Core Operations", icon: Brain },
+    { id: "inbox", label: "AI Matching Agent", category: "Core Operations", icon: Brain },
     { id: "emergency", label: "Emergency Chat", category: "Core Operations", icon: HelpCircle },
     { id: "admin", label: "Database Admin", category: "Administration", icon: Database },
     { id: "impact", label: "Shortage Forecast", category: "Intelligence", icon: Layers },
@@ -1718,11 +1719,12 @@ export default function App() {
                             <button
                               onClick={() => {
                                 setCurrentRoute("inbox");
-                                addNotification(`Inspecting matches for case ${req.id}`);
+                                addNotification(`AI Agent assigned to resolve patient requirement ${req.id}`);
                               }}
-                              className="px-3.5 py-1.5 bg-[#321923] hover:bg-[#3A202B] border border-[#49303A] text-xs font-mono font-bold rounded-lg text-[#FFF7F5] transition-all cursor-pointer shrink-0"
+                              className="px-3.5 py-1.5 bg-[#321923] hover:bg-[#3A202B] border border-[#C72C41]/50 text-xs font-mono font-bold rounded-lg text-[#E8A0AA] hover:text-white transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-sm"
                             >
-                              Inspect Matches
+                              <Brain className="w-3.5 h-3.5 text-[#C72C41]" />
+                              <span>AI Auto-Match</span>
                             </button>
                           </div>
                         ))}
@@ -1749,11 +1751,11 @@ export default function App() {
                 />
               )}
 
-              {/* Matching Engine & Alert Inbox (Section 11) */}
+              {/* Autonomous AI Blood Donor & Requester Matching Agent Console */}
               {currentRoute === "inbox" && (
-                <DonorInbox
+                <AiMatchingAgentConsole
                   requests={requests}
-                  setRequests={setRequests}
+                  onRefreshRequests={fetchLiveDatabase}
                   addNotification={addNotification}
                   userLocation={userLocation}
                 />
@@ -2503,89 +2505,7 @@ function DonateFlow({
   );
 }
 
-/* ========================================================
-   SECTION 11: MATCHING ENGINE & ALERT INBOX
-   ======================================================== */
-function DonorInbox({
-  requests,
-  setRequests,
-  addNotification,
-  userLocation
-}: {
-  requests: BloodRequest[];
-  setRequests: React.Dispatch<React.SetStateAction<BloodRequest[]>>;
-  addNotification: (msg: string) => void;
-  userLocation: string;
-}) {
-  const filtered = requests.filter(r => r.location.toLowerCase() === userLocation.toLowerCase() && r.status === "PENDING");
 
-  const handleAccept = (id: string) => {
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "IN_TRANSIT" } : r));
-    addNotification(`DISPATCH ACCEPTED: Coordinate drone transit armed for Case ${id}`);
-    alert("Blood transport drone dispatched successfully!");
-  };
-
-  return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="border-b border-[#49303A] pb-3 flex justify-between items-center">
-        <div>
-          <h2 className="text-base font-extrabold text-[#FFF7F5] font-heading flex items-center gap-2">
-            <Brain className="w-4 h-4 text-[#C72C41]" /> Priority Alert Queue & Matching
-          </h2>
-          <p className="text-xs text-[#C3AEB4] mt-0.5">
-            Active hospital emergency alerts requiring donor response in {userLocation}.
-          </p>
-        </div>
-        <span className="text-[10px] font-mono text-[#38BDF8] border border-[#38BDF8]/30 px-2 py-0.5 rounded bg-[#38BDF8]/10">
-          ● GPS Synced
-        </span>
-      </div>
-
-      <div className="burgundy-card p-6 min-h-[350px] border border-[#49303A] shadow-md">
-        {filtered.length > 0 ? (
-          <div className="space-y-3.5">
-            {filtered.map(req => (
-              <div
-                key={req.id}
-                className="p-4 border border-[#49303A] bg-[#24151D] rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-[#563441] transition-all"
-              >
-                <div>
-                  <span className="px-2 py-0.5 bg-[#321923] border border-[#49303A] text-[9px] text-[#E8A0AA] font-mono rounded font-bold">
-                    CASE REF: {req.id}
-                  </span>
-                  <h4 className="text-sm font-bold text-[#FFF7F5] mt-2 flex items-center gap-2">
-                    {req.patientName}
-                    <span className="px-2 py-0.5 bg-[#C72C41]/20 border border-[#C72C41]/40 text-[#E8A0AA] rounded text-xs font-mono">
-                      {req.bloodGroup}
-                    </span>
-                    {req.urgency === "Emergency" && (
-                      <span className="px-2 py-0.5 bg-[#FF334F]/20 text-[#FF334F] border border-[#FF334F]/40 text-[9px] rounded font-mono font-bold animate-pulse">
-                        EMERGENCY DISPATCH
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-xs text-[#C3AEB4] mt-1 font-mono">{req.hospitalName}</p>
-                </div>
-                <button
-                  onClick={() => handleAccept(req.id)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-[#D93A50] to-[#A91F36] hover:brightness-110 text-white text-xs font-bold font-mono rounded-xl transition-all cursor-pointer shadow-md shadow-[#C72C41]/25"
-                >
-                  Accept Dispatch Alert
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-52 text-[#9C858D] text-center space-y-2">
-            <CheckCircle className="w-10 h-10 text-[#22C55E] mb-1" />
-            <p className="text-xs font-mono text-[#FFF7F5]">No pending critical alerts in {userLocation} Hub.</p>
-            <p className="text-[10px] text-[#9C858D]">All requests in this zone have been matched or delivered.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ========================================================
    SECTION 8: GIS RADAR & LOCATION MAP
