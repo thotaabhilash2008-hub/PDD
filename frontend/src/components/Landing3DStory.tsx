@@ -4,7 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight, Brain, Droplet, Globe, Heart, Siren, Users, ChevronDown
 } from "lucide-react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import ThreeBloodDropHero from "./ThreeBloodDropHero";
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface Landing3DStoryProps {
   onEnterApp: () => void;
@@ -24,25 +28,37 @@ export default function Landing3DStory({
   const [simulatedBlood, setSimulatedBlood] = useState("O-");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Monitor scroll position to update active storytelling section
+  // GSAP ScrollTrigger synchronization with 3D storytelling sections
   useEffect(() => {
+    const sectionIds = ["hero-sec", "matching-sec", "location-sec", "emergency-sec", "community-sec"];
+    const triggers: ScrollTrigger[] = [];
+
     const handleScroll = () => {
-      const el = containerRef.current || window;
-      const scrollTop = el === window ? window.scrollY : (el as HTMLElement).scrollTop;
-      const scrollHeight = (el === window ? document.documentElement.scrollHeight : (el as HTMLElement).scrollHeight) - window.innerHeight;
+      const scrollTop = window.scrollY;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
       const progress = scrollHeight > 0 ? Math.min(1, Math.max(0, scrollTop / scrollHeight)) : 0;
       setScrollProgress(progress);
-
-      // 5 Sections mapping based on scroll position
-      if (progress < 0.2) setActiveSection(0);
-      else if (progress < 0.42) setActiveSection(1);
-      else if (progress < 0.65) setActiveSection(2);
-      else if (progress < 0.85) setActiveSection(3);
-      else setActiveSection(4);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    sectionIds.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const st = ScrollTrigger.create({
+        trigger: el,
+        start: "top 55%",
+        end: "bottom 55%",
+        onEnter: () => setActiveSection(idx),
+        onEnterBack: () => setActiveSection(idx)
+      });
+      triggers.push(st);
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      triggers.forEach(t => t.kill());
+    };
   }, []);
 
   const scrollToSection = (index: number) => {
