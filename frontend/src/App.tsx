@@ -10,6 +10,8 @@ import {
   Building, Radio
 } from "lucide-react";
 import AdminPanel from "./components/AdminPanel";
+import Landing3DStory from "./components/Landing3DStory";
+import ThreeBloodDropHero from "./components/ThreeBloodDropHero";
 
 const API_BASE = "http://localhost:4000";
 
@@ -281,8 +283,6 @@ export default function App() {
     }
   };
 
-  // Check layout types: is it landing or auth page?
-  const isFullScreenPage = currentRoute === "landing" || currentRoute === "auth";
 
   // Sidebar navigation options list
   const navItems = [
@@ -461,65 +461,17 @@ export default function App() {
             }}
           />
         </div>
-      ) : isFullScreenPage ? (
-        // Full screen presentation pages (Landing & Auth)
+      ) : currentRoute === "landing" ? (
+        // Full Cinematic 3D Storytelling Experience (5 Interactive Sections)
+        <Landing3DStory
+          onEnterApp={() => setCurrentRoute("dashboard")}
+          onGuestAccess={handleGuestAccess}
+          onOpenSosModal={() => setShowSosModal(true)}
+          onGoToRoute={(route) => setCurrentRoute(route)}
+        />
+      ) : currentRoute === "auth" ? (
+        // Full screen presentation pages (Auth)
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6 min-h-screen z-10">
-          {currentRoute === "landing" && (
-            <div className="text-center max-w-xl mx-auto burgundy-card p-8 sm:p-12 space-y-8 animate-fadeIn relative overflow-hidden border border-[#49303A] shadow-2xl">
-              {/* Glowing Ruby Blood-Drop Illustration */}
-              <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-[#C72C41]/20 blur-xl animate-pulse"></div>
-                <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#3A202B] to-[#211018] border border-[#C72C41]/40 flex items-center justify-center shadow-inner">
-                  <Droplet className="w-10 h-10 text-[#C72C41] fill-[#C72C41] heartbeat-icon drop-shadow-[0_0_12px_rgba(199,44,65,0.6)]" />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <span className="text-[11px] font-mono tracking-widest text-[#E8A0AA] font-bold uppercase bg-[#3A202B] px-3 py-1 rounded-full border border-[#49303A]">
-                  INTELLIGENT BLOOD LOGISTICS
-                </span>
-                <h1 className="font-heading text-4xl sm:text-5xl font-extrabold text-[#FFF7F5] tracking-tight leading-tight">
-                  Every Connection <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFF7F5] via-[#E8A0AA] to-[#E05263]">
-                    Can Save a Life.
-                  </span>
-                </h1>
-                <p className="text-[#C3AEB4] text-sm sm:text-base leading-relaxed max-w-md mx-auto">
-                  Autonomous real-time blood logistics, intelligent donor matching, location-based GIS radar, and emergency triage coordination.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-2">
-                <button
-                  onClick={() => setCurrentRoute("auth")}
-                  className="w-full sm:w-auto px-8 py-3.5 btn-premium text-xs tracking-wider cursor-pointer font-bold uppercase font-mono shadow-xl flex items-center justify-center gap-2"
-                >
-                  <span>Enter Operations Deck</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleGuestAccess}
-                  className="w-full sm:w-auto px-6 py-3.5 btn-secondary text-xs tracking-wider cursor-pointer font-bold uppercase font-mono"
-                >
-                  Guest Access
-                </button>
-              </div>
-
-              {/* Status pills */}
-              <div className="pt-4 border-t border-[#49303A]/60 flex items-center justify-center gap-4 text-xs font-mono text-[#9C858D]">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
-                  Dijkstra Radar: Online
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#C72C41]"></span>
-                  Active Nodes: 18 Hubs
-                </span>
-              </div>
-            </div>
-          )}
-
-          {currentRoute === "auth" && (
             <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden burgundy-card border border-[#49303A] shadow-2xl min-h-[560px]">
               {/* Left Panel: Healthcare Tech Branding & Glowing Illustration */}
               <div className="lg:col-span-5 bg-gradient-to-br from-[#190D13] via-[#27121B] to-[#211018] border-r border-[#49303A] p-8 flex flex-col justify-between hidden lg:flex relative overflow-hidden">
@@ -815,7 +767,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-          )}
         </main>
       ) : (
         // Logged-in Structure: Left Navigation Sidebar & Main Command Deck
@@ -1126,6 +1077,11 @@ export default function App() {
 
                     {/* Subtle ambient lighting blob inside hero */}
                     <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-[#C72C41]/10 to-transparent pointer-events-none"></div>
+
+                    {/* Interactive 3D Blood Drop floating inside Hero Deck */}
+                    <div className="absolute -right-4 -top-6 -bottom-6 w-72 md:w-88 lg:w-96 pointer-events-none opacity-90 hidden sm:block">
+                      <ThreeBloodDropHero currentSection={0} />
+                    </div>
                   </div>
 
                   {/* Dashboard Metric Cards (Section 7) */}
