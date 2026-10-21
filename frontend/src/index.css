@@ -1,0 +1,302 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-blood-50: #ffebee;
+  --color-blood-100: #ffcdd2;
+  --color-blood-200: #ef9a9a;
+  --color-blood-300: #e57373;
+  --color-blood-400: #ef5350;
+  --color-blood-500: #f44336;
+  --color-blood-600: #e53935;
+  --color-blood-700: #d32f2f;
+  --color-blood-800: #c62828;
+  --color-blood-900: #b71c1c;
+
+  --color-cyber-blue: #00d2ff;
+  --color-cyber-dark: #07090e;
+  --color-cyber-card: #0e121c;
+  --color-cyber-border: #161e2e;
+  --color-cyber-glow: #ff0055;
+
+  --font-sans: 'Outfit', 'Inter', sans-serif;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-glow-pulse: glow 2s ease-in-out infinite alternate;
+
+  @keyframes glow {
+    0% { box-shadow: 0 0 5px rgba(229, 57, 53, 0.2), 0 0 10px rgba(229, 57, 53, 0.2); }
+    100% { box-shadow: 0 0 15px rgba(229, 57, 53, 0.6), 0 0 25px rgba(229, 57, 53, 0.4); }
+  }
+}
+
+body {
+  @apply bg-cyber-dark text-slate-200 font-sans antialiased overflow-x-hidden min-h-screen relative;
+}
+
+/* Background animated blobs from Hemo Connect */
+.background-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+  opacity: 0.45;
+  background-image: 
+    linear-gradient(to bottom, rgba(7, 9, 14, 0.7) 0%, rgba(7, 9, 14, 0.95) 100%),
+    url('./assets/network_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: blob-movement 25s infinite alternate ease-in-out;
+}
+
+.blob-1 {
+  top: -10%;
+  left: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(229, 57, 53, 0.15) 0%, transparent 80%);
+}
+
+.blob-2 {
+  bottom: -10%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(21, 101, 192, 0.15) 0%, transparent 80%);
+  animation-duration: 30s;
+  animation-delay: -5s;
+}
+
+.blob-3 {
+  top: 40%;
+  left: 50%;
+  width: 45%;
+  height: 45%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 80%);
+  animation-duration: 20s;
+  animation-delay: -10s;
+}
+
+@keyframes blob-movement {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(80px, -60px) scale(1.15); }
+  100% { transform: translate(-40px, 40px) scale(0.9); }
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  @apply bg-cyber-card/75 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-xl transition-all duration-300;
+}
+
+.glass-panel-hover {
+  @apply hover:bg-cyber-card/90 hover:border-slate-700/80 hover:shadow-2xl hover:shadow-blood-600/10 hover:-translate-y-0.5;
+}
+
+/* Neon Logo styling matching the Hemo Connect aesthetic */
+.logo-neon {
+  @apply flex items-center gap-3 transition-all duration-200 select-none;
+  text-shadow: 0 0 10px rgba(229, 57, 53, 0.35);
+}
+
+.logo-main {
+  @apply text-xl font-extrabold tracking-wider;
+}
+
+.hemo {
+  @apply text-slate-100;
+}
+
+.connect {
+  @apply text-blood-600;
+}
+
+/* Glowing Neon Elements */
+.glow-red {
+  box-shadow: 0 0 20px rgba(229, 57, 53, 0.25);
+  border-color: rgba(229, 57, 53, 0.4);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(21, 101, 192, 0.25);
+  border-color: rgba(21, 101, 192, 0.4);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-cyber-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 rounded-full hover:bg-slate-700;
+}
+
+/* HUD Grid */
+.hud-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(30, 41, 59, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
+}
+
+/* Premium Component Enhancements */
+.btn-premium {
+  @apply relative overflow-hidden bg-gradient-to-r from-blood-700 to-rose-600 hover:from-blood-600 hover:to-rose-500 text-white rounded-xl font-bold tracking-wider uppercase transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-blood-600/35 active:scale-95 cursor-pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  transition: all 0.6s ease;
+}
+
+.btn-premium:hover::before {
+  left: 100%;
+}
+
+.btn-secondary-premium {
+  @apply bg-slate-950/60 border border-slate-800 hover:border-slate-700/80 text-slate-300 hover:text-white rounded-xl font-bold tracking-wider uppercase transition-all duration-300 active:scale-95 cursor-pointer hover:bg-slate-900/50;
+}
+
+.input-premium {
+  @apply w-full bg-slate-950/80 border border-slate-900 rounded-xl px-4 py-3 text-xs text-white transition-all duration-300 focus:outline-none focus:border-blood-500/80 focus:shadow-[0_0_15px_rgba(229,57,53,0.15)] placeholder-slate-600;
+}
+
+.select-premium {
+  @apply w-full bg-slate-950/80 border border-slate-900 rounded-xl px-4 py-3 text-xs text-white transition-all duration-300 focus:outline-none focus:border-blood-500/80 focus:shadow-[0_0_15px_rgba(229,57,53,0.15)] cursor-pointer;
+}
+
+.glass-panel-premium {
+  background: linear-gradient(135deg, rgba(14, 18, 28, 0.8) 0%, rgba(9, 12, 19, 0.9) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  @apply rounded-2xl transition-all duration-300;
+}
+
+.glass-panel-premium:hover {
+  border-color: rgba(229, 57, 53, 0.18);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.85), 0 0 20px rgba(229, 57, 53, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.badge-premium {
+  @apply px-2.5 py-1 rounded-full text-[9px] font-bold tracking-wider font-mono uppercase border transition-all;
+}
+
+.badge-red {
+  @apply bg-blood-900/20 border-blood-800/40 text-blood-400 shadow-[0_0_10px_rgba(229,57,53,0.08)];
+}
+
+.badge-green {
+  @apply bg-emerald-950/30 border-emerald-800/40 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.08)];
+}
+
+.badge-cyan {
+  @apply bg-cyan-950/30 border-cyan-800/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.08)];
+}
+
+/* Premium Animations & HUD Utilities */
+@keyframes signal-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.signal-path {
+  stroke-dasharray: 6, 6;
+  animation: signal-flow 1.5s linear infinite;
+}
+
+@keyframes heartbeat-pulse {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.18); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.18); }
+  70% { transform: scale(1); }
+}
+
+.heartbeat-icon {
+  animation: heartbeat-pulse 1.4s infinite ease-in-out;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanline-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+  animation: scanline 6s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+/* Custom glowing scrollbar for terminal views */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(7, 9, 14, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(229, 57, 53, 0.3);
+  border-radius: 99px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(229, 57, 53, 0.6);
+}
+
+

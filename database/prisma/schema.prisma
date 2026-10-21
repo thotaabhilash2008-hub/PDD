@@ -1,0 +1,233 @@
+// prisma/schema.prisma
+// Database schema for BloodLink AI - Intelligent Real-Time Blood Logistics Network
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  DONOR
+  RECIPIENT
+  HOSPITAL_STAFF
+  BLOOD_BANK_STAFF
+  GOVT_OFFICIAL
+  ADMIN
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RequestStatus {
+  PENDING
+  MATCHING
+  ALLOCATED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum TransferStatus {
+  PROPOSED
+  APPROVED
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum ResponseStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String
+  role         Role      @default(DONOR)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  donorProfile   DonorProfile?
+  hospitalStaff  HospitalStaff?
+  bankStaff      BloodBankStaff?
+  requests       BloodRequest[]   @relation("RecipientRequests")
+}
+
+model DonorProfile {
+  id                    String        @id @default(uuid())
+  userId                String        @unique
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodGroup            BloodGroup
+  latitude              Float
+  longitude             Float
+  isAvailable           Boolean       @default(true)
+  kycVerified           Boolean       @default(false)
+  lastDonationDate      DateTime?
+  donationFrequencyDays Int           @default(90)
+  rewardPoints          Int           @default(0)
+  donorLevel            String        @default("Bronze") // Bronze, Silver, Gold, Platinum
+  healthStatus          String        @default("Eligible") // Eligible, Temporary_Deferral, Permanent_Deferral
+  wearableConsent       Boolean       @default(false)
+
+  responses             DonorResponse[]
+  wearableLogs          WearableLog[]
+}
+
+model Hospital {
+  id        String   @id @default(uuid())
+  name      String
+  latitude  Float
+  longitude Float
+  address   String
+  createdAt DateTime @default(now())
+
+  staff     HospitalStaff[]
+  requests  BloodRequest[]
+  inventory BloodInventory[]
+  transfersIn StockTransfer[]  @relation("HospitalTransfers")
+}
+
+model HospitalStaff {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+}
+
+model BloodBank {
+  id        String   @id @default(uuid())
+  name      String
+  latitude  Float
+  longitude Float
+  address   String
+  createdAt DateTime @default(now())
+
+  staff        BloodBankStaff[]
+  inventory    BloodInventory[]
+  transfersOut StockTransfer[]  @relation("BloodBankTransfers")
+}
+
+model BloodBankStaff {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodBankId String
+  bloodBank   BloodBank @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+}
+
+model BloodInventory {
+  id           String     @id @default(uuid())
+  bloodGroup   BloodGroup
+  volumeMl     Float
+  expiryDate   DateTime
+  status       String     @default("AVAILABLE") // AVAILABLE, RESERVED, EXPIRED, TRANSFERRED
+  createdAt    DateTime   @default(now())
+  
+  bloodBankId  String?
+  bloodBank    BloodBank? @relation(fields: [bloodBankId], references: [id], onDelete: Cascade)
+  
+  hospitalId   String?
+  hospital     Hospital?  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+}
+
+model BloodRequest {
+  id               String        @id @default(uuid())
+  patientCondition String
+  bloodGroup       BloodGroup
+  volumeMl         Float
+  priority         Priority      @default(MEDIUM)
+  status           RequestStatus @default(PENDING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  hospitalId       String
+  hospital         Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  
+  recipientId      String?
+  recipient        User?         @relation("RecipientRequests", fields: [recipientId], references: [id])
+
+  responses        DonorResponse[]
+  blockchainTrace  BlockchainBlock[]
+}
+
+model DonorResponse {
+  id                      String         @id @default(uuid())
+  requestId               String
+  request                 BloodRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  donorId                 String
+  donor                   DonorProfile   @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  status                  ResponseStatus @default(PENDING)
+  distanceKm              Float
+  estResponseTimeMinutes  Int
+  estArrivalTimeMinutes   Int
+  matchConfidenceScore    Float
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
+
+model StockTransfer {
+  id           String         @id @default(uuid())
+  bloodGroup   BloodGroup
+  volumeMl     Float
+  status       TransferStatus @default(PROPOSED)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  fromBankId   String
+  fromBank     BloodBank      @relation("BloodBankTransfers", fields: [fromBankId], references: [id])
+  
+  toHospitalId String
+  toHospital   Hospital       @relation("HospitalTransfers", fields: [toHospitalId], references: [id])
+  
+  etaMinutes   Int
+  routeCoordinates Json?      // Simulated path arrays
+}
+
+model WearableLog {
+  id            String       @id @default(uuid())
+  donorId       String
+  donor         DonorProfile @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  heartRate     Int
+  bloodPressure String
+  bodyTemp      Float
+  loggedAt      DateTime     @default(now())
+}
+
+model BlockchainBlock {
+  id           String       @id @default(uuid())
+  index        Int          @unique
+  timestamp    DateTime     @default(now())
+  bloodUnitId  String
+  action       String       // COLLECTION, TESTING, STORAGE, STORAGE_TRANSFER, TRANSFUSION
+  hash         String
+  prevHash     String
+  data         Json         // Log details, operator id, temp logs, location
+  
+  requestId    String?
+  request      BloodRequest? @relation(fields: [requestId], references: [id])
+}
