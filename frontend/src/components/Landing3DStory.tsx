@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight, Brain, Droplet, Globe, Heart, Siren, Users, ChevronDown,
-  Activity, Navigation
+  Activity, Navigation, User, LogOut
 } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -16,13 +16,21 @@ interface Landing3DStoryProps {
   onGuestAccess: () => void;
   onOpenSosModal: () => void;
   onGoToRoute: (route: any) => void;
+  userProfile?: any;
+  onOpenCredentialsModal?: () => void;
+  onLogout?: () => void;
+  overviewMetrics?: any;
 }
 
 export default function Landing3DStory({
   onEnterApp,
   onGuestAccess,
   onOpenSosModal,
-  onGoToRoute
+  onGoToRoute,
+  userProfile,
+  onOpenCredentialsModal,
+  onLogout,
+  overviewMetrics
 }: Landing3DStoryProps) {
   const [activeSection, setActiveSection] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -162,12 +170,42 @@ export default function Landing3DStory({
             <Siren className="w-3.5 h-3.5 animate-pulse" />
             <span>SOS BEACON</span>
           </button>
-          <button
-            onClick={onGuestAccess}
-            className="px-3.5 py-1.5 bg-[#24151D] hover:bg-[#321923] border border-[#49303A] text-[#C3AEB4] hover:text-[#FFF7F5] rounded-xl font-bold transition-all cursor-pointer"
-          >
-            Guest Mode
-          </button>
+
+          {userProfile ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenCredentialsModal}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#321923] hover:bg-[#3A202B] border border-[#C72C41]/50 text-[#FFF7F5] rounded-xl font-bold transition-all cursor-pointer group shadow-sm"
+                title="View Account & Database Credentials"
+              >
+                <div className="w-5 h-5 rounded-full bg-[#C72C41] flex items-center justify-center text-[10px] text-white uppercase font-black">
+                  {userProfile.name ? userProfile.name.charAt(0) : "U"}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[11px] leading-tight text-[#FFF7F5] group-hover:text-[#E8A0AA]">{userProfile.name || "User"}</span>
+                  <span className="text-[9px] leading-tight text-[#E8A0AA] font-normal">{userProfile.role || "Citizen"}</span>
+                </div>
+              </button>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="p-1.5 bg-[#24151D] hover:bg-[#FF334F]/20 border border-[#49303A] hover:border-[#FF334F]/50 text-[#9C858D] hover:text-[#FF334F] rounded-xl transition-all cursor-pointer"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => onGoToRoute("login")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#24151D] hover:bg-[#321923] border border-[#49303A] text-[#FFF7F5] rounded-xl font-bold transition-all cursor-pointer"
+            >
+              <User className="w-3.5 h-3.5 text-[#C72C41]" />
+              <span>Sign In / OTP</span>
+            </button>
+          )}
+
           <button
             onClick={onEnterApp}
             className="px-4 py-1.5 btn-premium font-bold uppercase tracking-wider rounded-xl cursor-pointer shadow-md shadow-[#C72C41]/20 flex items-center gap-1.5"
@@ -233,16 +271,22 @@ export default function Landing3DStory({
           {/* Network Telemetry Badges */}
           <div className="pt-8 grid grid-cols-3 gap-4 max-w-md border-t border-[#49303A]/60 font-mono">
             <div>
-              <span className="text-xl sm:text-2xl font-bold text-[#FFF7F5] block font-mono">1,428</span>
+              <span className="text-xl sm:text-2xl font-bold text-[#FFF7F5] block font-mono">
+                {overviewMetrics?.activeDonors !== undefined ? overviewMetrics.activeDonors.toLocaleString() : "1,428"}
+              </span>
               <span className="text-[10px] text-[#9C858D] uppercase font-bold block">Verified Donors</span>
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-bold text-[#22C55E] block font-mono">42 Hubs</span>
+              <span className="text-xl sm:text-2xl font-bold text-[#22C55E] block font-mono">
+                {overviewMetrics?.totalHospitals !== undefined ? `${overviewMetrics.totalHospitals} Hubs` : "42 Hubs"}
+              </span>
               <span className="text-[10px] text-[#9C858D] uppercase font-bold block">Hospital Nodes</span>
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-bold text-[#38BDF8] block font-mono">16.2 min</span>
-              <span className="text-[10px] text-[#9C858D] uppercase font-bold block">Avg Corridor ETA</span>
+              <span className="text-xl sm:text-2xl font-bold text-[#38BDF8] block font-mono">
+                {overviewMetrics?.totalUnits !== undefined ? `${overviewMetrics.totalUnits} Units` : "850 Units"}
+              </span>
+              <span className="text-[10px] text-[#9C858D] uppercase font-bold block">DB Blood Inventory</span>
             </div>
           </div>
         </div>

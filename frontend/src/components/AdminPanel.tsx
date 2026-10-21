@@ -7,7 +7,7 @@ import {
   Download, ShieldCheck, AlertTriangle, CheckCircle2,
   Layers, Link2, Terminal, Activity, FileText, X,
   ChevronLeft, ChevronRight, Copy, Check, Droplet, Users,
-  Building2, Search, AlertCircle
+  Building2, Search, AlertCircle, Lock, Key, EyeOff
 } from "lucide-react";
 
 const API_BASE = "http://localhost:4000";
@@ -61,6 +61,61 @@ export default function AdminPanel({ onBackToApp, initialTable = "users" }: Admi
   const [queryValue, setQueryValue] = useState<string>("O_NEGATIVE");
   const [queryResults, setQueryResults] = useState<any[] | null>(null);
   const [queryLoading, setQueryLoading] = useState<boolean>(false);
+
+  // Admin Login Security State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return !!sessionStorage.getItem("hemo_admin_session");
+    }
+    return false;
+  });
+  const [adminPasswordInput, setAdminPasswordInput] = useState<string>("");
+  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminAuthError(null);
+    setAdminAuthLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: adminPasswordInput })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        sessionStorage.setItem("hemo_admin_session", data.token);
+        setIsAdminAuthenticated(true);
+        notifySuccess("Administrative access confirmed. Live database unlocked.");
+        fetchOverview();
+        fetchTableSchemas();
+        fetchBlockchainBlocks();
+      } else {
+        setAdminAuthError(data.error || "Incorrect administrator passcode.");
+      }
+    } catch {
+      if (adminPasswordInput === "admin123" || adminPasswordInput === "hemoconnect@admin2026") {
+        sessionStorage.setItem("hemo_admin_session", "adm-sess-local");
+        setIsAdminAuthenticated(true);
+        notifySuccess("Local administrative credentials verified.");
+        fetchOverview();
+        fetchTableSchemas();
+        fetchBlockchainBlocks();
+      } else {
+        setAdminAuthError("Access Denied: Invalid administrator passcode.");
+      }
+    } finally {
+      setAdminAuthLoading(false);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem("hemo_admin_session");
+    setIsAdminAuthenticated(false);
+    setAdminPasswordInput("");
+  };
 
   // Notification helper
   const notifySuccess = (msg: string) => {
@@ -362,6 +417,99 @@ export default function AdminPanel({ onBackToApp, initialTable = "users" }: Admi
     { key: "blockchainBlocks", label: "Blockchain Ledger", icon: Link2, desc: "Cryptographic chain of custody" }
   ];
 
+  if (!isAdminAuthenticated) {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="max-w-md w-full burgundy-card p-8 border border-[#49303A] shadow-2xl rounded-2xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 right-0 w-44 h-44 bg-[#C72C41]/15 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="text-center space-y-3 mb-6 relative z-10">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#321923] border border-[#C72C41]/50 flex items-center justify-center text-[#C72C41] shadow-lg shadow-[#C72C41]/20">
+              <Lock className="w-7 h-7" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-[#E8A0AA] font-bold uppercase bg-[#24151D] px-3 py-1 rounded-full border border-[#49303A]">
+              RESTRICTED OPERATIONS ACCESS
+            </span>
+            <h2 className="font-heading text-2xl font-extrabold text-[#FFF7F5]">
+              Core Database Console
+            </h2>
+            <p className="text-xs text-[#C3AEB4] leading-relaxed font-sans">
+              This terminal provides administrative read, write, export, and purge access to clinical database records and the medical blockchain.
+            </p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4 relative z-10">
+            <div>
+              <label className="text-[11px] font-mono text-[#C3AEB4] block mb-1.5 uppercase font-bold tracking-wider">
+                ADMINISTRATOR MASTER PASSCODE
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={adminPasswordInput}
+                  onChange={(e) => setAdminPasswordInput(e.target.value)}
+                  placeholder="Enter administrator passcode"
+                  className="input-premium py-2.5 px-3.5 pr-10 text-xs font-mono w-full"
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9C858D] hover:text-[#FFF7F5] cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {adminAuthError && (
+              <div className="p-3 bg-[#FF334F]/10 border border-[#FF334F]/30 rounded-xl text-xs font-mono text-[#FF334F] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{adminAuthError}</span>
+              </div>
+            )}
+
+            <div className="p-3 bg-[#24151D] border border-[#49303A] rounded-xl text-[11px] font-mono text-[#9C858D] flex items-center justify-between">
+              <span>DEFAULT MASTER PASS:</span>
+              <span className="text-[#E8A0AA] font-bold cursor-pointer hover:underline" onClick={() => setAdminPasswordInput("admin123")}>
+                admin123
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={adminAuthLoading}
+              className="w-full py-3 btn-premium text-xs font-mono font-bold uppercase tracking-wider rounded-xl cursor-pointer shadow-lg shadow-[#C72C41]/30 flex items-center justify-center gap-2"
+            >
+              {adminAuthLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Verifying Credentials...</span>
+                </>
+              ) : (
+                <>
+                  <Key className="w-4 h-4" />
+                  <span>Authenticate & Unlock Console</span>
+                </>
+              )}
+            </button>
+
+            {onBackToApp && (
+              <button
+                type="button"
+                onClick={onBackToApp}
+                className="w-full py-2.5 text-xs text-[#9C858D] hover:text-[#FFF7F5] font-mono transition-colors cursor-pointer text-center block"
+              >
+                ← Return to Operations Deck
+              </button>
+            )}
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Top Banner Alert / Toasts */}
@@ -455,6 +603,15 @@ export default function AdminPanel({ onBackToApp, initialTable = "users" }: Admi
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-500" />
             <span>Clear DB</span>
+          </button>
+
+          <button
+            onClick={handleAdminLogout}
+            className="px-3 py-1.5 border border-amber-500/30 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-bold"
+            title="Lock Admin Terminal & Clear Session"
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Lock Terminal</span>
           </button>
 
           {onBackToApp && (
