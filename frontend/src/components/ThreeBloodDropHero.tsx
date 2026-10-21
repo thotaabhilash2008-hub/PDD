@@ -522,23 +522,33 @@ export default function ThreeBloodDropHero({
         targetPosY = 1.35;
         targetScale = 0.95;
       } else if (activeSection === 1) {
-        // Section 2: Intelligent Matching — moves to left side
+        // Section 1: The Need — drop is visual focal point, moves slightly toward center-right
+        targetPosX = 1.1;
+        targetPosY = 0.0;
+        targetScale = 1.65;
+      } else if (activeSection === 2) {
+        // Section 2: The Network — transitions into large 3D network on left
         targetPosX = -1.8;
         targetPosY = 0.0;
         targetScale = 1.35;
-      } else if (activeSection === 2) {
-        // Section 3: GIS Radar Location — moves to right side
-        targetPosX = 2.0;
+      } else if (activeSection === 3) {
+        // Section 3: Intelligent Matching — matching evaluation on left
+        targetPosX = -1.85;
+        targetPosY = 0.0;
+        targetScale = 1.35;
+      } else if (activeSection === 4) {
+        // Section 4: Location Intelligence — shifts to right, GIS corridor radar
+        targetPosX = 2.05;
         targetPosY = 0.25;
         targetScale = 1.25;
-      } else if (activeSection === 3) {
-        // Section 4: Emergency Response — dramatic ruby focus & expansion
+      } else if (activeSection === 5) {
+        // Section 5: Emergency Response — dramatic ruby focus & expansion
         targetPosX = -1.65;
         targetPosY = 0.05;
         targetScale = 1.75;
         emergencyGlow = 1;
-      } else if (activeSection === 4) {
-        // Section 5: Community — elevated beacon
+      } else if (activeSection === 6) {
+        // Section 6: Take Action — elevated beacon above action buttons
         targetPosX = 0.0;
         targetPosY = 2.1;
         targetScale = 0.9;

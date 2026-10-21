@@ -1,8 +1,9 @@
 // frontend/src/components/Landing3DStory.tsx
-// Cinematic 3D Storytelling Experience for HemoConnect
+// Cinematic 3D Healthcare Storytelling Experience — "HEMOCONNECT: THE LIVING BLOOD NETWORK"
 import { useState, useEffect, useRef } from "react";
 import {
-  ArrowRight, Brain, Droplet, Globe, Heart, Siren, Users, ChevronDown
+  ArrowRight, Brain, Droplet, Globe, Heart, Siren, Users, ChevronDown,
+  Activity, Navigation
 } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -30,7 +31,15 @@ export default function Landing3DStory({
 
   // GSAP ScrollTrigger synchronization with 3D storytelling sections
   useEffect(() => {
-    const sectionIds = ["hero-sec", "matching-sec", "location-sec", "emergency-sec", "community-sec"];
+    const sectionIds = [
+      "hero-sec",
+      "need-sec",
+      "network-sec",
+      "matching-sec",
+      "location-sec",
+      "emergency-sec",
+      "action-sec"
+    ];
     const triggers: ScrollTrigger[] = [];
 
     const handleScroll = () => {
@@ -62,7 +71,15 @@ export default function Landing3DStory({
   }, []);
 
   const scrollToSection = (index: number) => {
-    const sectionIds = ["hero-sec", "matching-sec", "location-sec", "emergency-sec", "community-sec"];
+    const sectionIds = [
+      "hero-sec",
+      "need-sec",
+      "network-sec",
+      "matching-sec",
+      "location-sec",
+      "emergency-sec",
+      "action-sec"
+    ];
     const target = document.getElementById(sectionIds[index]);
     if (target) {
       target.scrollIntoView({ behavior: "smooth" });
@@ -87,7 +104,7 @@ export default function Landing3DStory({
   return (
     <div ref={containerRef} className="relative w-full text-[#FFF7F5] overflow-x-hidden selection:bg-[#C72C41] selection:text-white">
       
-      {/* Fixed Background 3D Canvas Layer */}
+      {/* Fixed Background 3D WebGL Canvas Layer */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <ThreeBloodDropHero currentSection={activeSection} scrollProgress={scrollProgress} />
       </div>
@@ -95,11 +112,13 @@ export default function Landing3DStory({
       {/* Floating Story Progress Navigation Dots */}
       <div className="fixed right-6 top-1/2 -translate-y-1/2 z-30 hidden lg:flex flex-col gap-3">
         {[
-          { label: "The Connection", idx: 0 },
-          { label: "Intelligent Matching", idx: 1 },
-          { label: "Real-Time Location", idx: 2 },
-          { label: "Emergency Response", idx: 3 },
-          { label: "Donor Community", idx: 4 }
+          { label: "The Living Drop", idx: 0 },
+          { label: "The Need", idx: 1 },
+          { label: "The Network", idx: 2 },
+          { label: "Intelligent Matching", idx: 3 },
+          { label: "Location Intelligence", idx: 4 },
+          { label: "Emergency Response", idx: 5 },
+          { label: "Take Action", idx: 6 }
         ].map(item => (
           <button
             key={item.idx}
@@ -122,7 +141,7 @@ export default function Landing3DStory({
       </div>
 
       {/* Top Floating Glass Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between backdrop-blur-md bg-[#190D13]/70 border-b border-[#49303A]/60">
+      <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between backdrop-blur-md bg-[#190D13]/75 border-b border-[#49303A]/60">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3A202B] to-[#211018] border border-[#C72C41]/50 flex items-center justify-center shadow-md">
             <Droplet className="w-4 h-4 text-[#C72C41] fill-[#C72C41] heartbeat-icon" />
@@ -130,8 +149,8 @@ export default function Landing3DStory({
           <span className="font-heading font-extrabold text-base tracking-wider text-[#FFF7F5]">
             HEMO<span className="text-[#C72C41]">CONNECT</span>
           </span>
-          <span className="hidden sm:inline text-[9px] font-mono text-[#E8A0AA] px-2 py-0.5 rounded bg-[#321923] border border-[#49303A]">
-            3D LOGISTICS PLATFORM
+          <span className="hidden sm:inline text-[9px] font-mono text-[#E8A0AA] px-2.5 py-0.5 rounded bg-[#321923] border border-[#49303A]">
+            THE LIVING BLOOD NETWORK
           </span>
         </div>
 
@@ -160,54 +179,54 @@ export default function Landing3DStory({
       </header>
 
       {/* ========================================================
-          HERO SECTION — CINEMATIC 3D EXPERIENCE (SECTION 1)
+          PHASE 4: HERO SECTION — THE CINEMATIC INTRO
           ======================================================== */}
       <section
         id="hero-sec"
         className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 pt-24 pb-12 z-10"
       >
         <div className="max-w-2xl space-y-6 animate-fadeIn">
-          {/* Section Small Label */}
+          {/* Subtle Technology Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#321923] border border-[#49303A] text-[10px] font-mono font-bold tracking-widest text-[#E8A0AA] uppercase">
-            <span className="w-2 h-2 rounded-full bg-[#C72C41] animate-ping"></span>
+            <span className="w-2 h-2 rounded-full bg-[#C72C41] animate-ping" />
             <span>INTELLIGENT BLOOD LOGISTICS</span>
           </div>
 
-          {/* Main Cinematic Heading */}
+          {/* Precise Hero Headline (Phase 4 Spec) */}
           <h1 className="font-heading text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.1] text-[#FFF7F5]">
-            Every Connection <br />
+            Every Drop. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFF7F5] via-[#E8A0AA] to-[#E05263]">
-              Can Save a Life.
+              A Connected Life.
             </span>
           </h1>
 
-          {/* Supporting Text */}
+          {/* Supporting Text (Phase 4 Spec) */}
           <p className="text-sm sm:text-base text-[#C3AEB4] leading-relaxed max-w-xl font-sans">
-            Connecting blood donors, patients, and hospitals through intelligent matching, location-aware GIS telemetry, and autonomous emergency coordination.
+            Intelligent blood logistics connecting donors, hospitals, and patients when every second matters.
           </p>
 
-          {/* Action Buttons */}
+          {/* Three Primary Actions (Phase 4 Spec) */}
           <div className="pt-2 flex flex-wrap items-center gap-3 font-mono">
             <button
-              onClick={onOpenSosModal}
+              onClick={() => onGoToRoute("dashboard")}
               className="px-6 py-3.5 btn-premium text-xs font-bold uppercase tracking-wider cursor-pointer shadow-xl shadow-[#C72C41]/30 flex items-center gap-2"
             >
-              <Siren className="w-4 h-4" />
-              <span>Emergency Blood Request</span>
+              <Users className="w-4 h-4" />
+              <span>Find a Donor</span>
             </button>
             <button
               onClick={() => onGoToRoute("donate")}
               className="px-6 py-3.5 btn-secondary text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-2"
             >
               <Heart className="w-4 h-4 text-[#C72C41]" />
-              <span>Become a Donor</span>
+              <span>Register as a Donor</span>
             </button>
             <button
-              onClick={() => scrollToSection(1)}
-              className="px-4 py-3.5 text-xs text-[#E8A0AA] hover:text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              onClick={() => onGoToRoute("request")}
+              className="px-6 py-3.5 bg-[#24151D] hover:bg-[#321923] border border-[#49303A] text-[#E8A0AA] hover:text-white text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center gap-2 transition-colors"
             >
-              <span>Explore the Network</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <Droplet className="w-4 h-4 text-[#FF334F]" />
+              <span>Request Blood</span>
             </button>
           </div>
 
@@ -229,27 +248,136 @@ export default function Landing3DStory({
         </div>
 
         {/* Scroll Indicator Down Arrow */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-[10px] font-mono text-[#9C858D] animate-bounce cursor-pointer" onClick={() => scrollToSection(1)}>
+        <div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-[10px] font-mono text-[#9C858D] animate-bounce cursor-pointer"
+          onClick={() => scrollToSection(1)}
+        >
           <span>SCROLL TO EXPLORE</span>
           <ChevronDown className="w-4 h-4 text-[#E8A0AA]" />
         </div>
       </section>
 
       {/* ========================================================
-          SECTION 2 — INTELLIGENT MATCHING (SCROLL-BASED)
+          PHASE 6: SECTION 1 — THE NEED
+          ======================================================== */}
+      <section
+        id="need-sec"
+        className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-20 z-10"
+      >
+        <div className="max-w-xl space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#24151D] border border-[#49303A] text-[10px] font-mono font-bold text-[#E8A0AA] uppercase">
+            <Activity className="w-3 h-3 text-[#C72C41]" />
+            <span>CRITICAL LOGISTICS REALITY</span>
+          </div>
+
+          <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-[#FFF7F5] leading-tight">
+            One Donation Can Change Everything.
+          </h2>
+
+          <p className="text-xs sm:text-sm text-[#C3AEB4] leading-relaxed">
+            Every two seconds, an emergency trauma patient, premature newborn, or surgical case relies on compatible whole blood units. Traditional blood banks face critical shortages due to fragmentation and static donor lists.
+          </p>
+
+          <div className="p-4 rounded-xl bg-[#24151D] border border-[#49303A] space-y-2 font-mono text-xs">
+            <div className="flex items-center justify-between text-[#E8A0AA] font-bold">
+              <span>● THE COLD-CHAIN TIMELINE</span>
+              <span>42 DAYS MAX</span>
+            </div>
+            <p className="text-[11px] text-[#9C858D] leading-normal font-sans">
+              Platelets expire in just 5 days. Whole blood requires refrigerated 2°C–6°C transit. Real-time digital logistics bridge the vital gap between donor availability and clinical need.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => onGoToRoute("donate")}
+              className="py-3 px-5 btn-premium text-xs font-mono font-bold uppercase tracking-wider cursor-pointer shadow-lg flex items-center gap-2"
+            >
+              <span>Register Today</span>
+              <Heart className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => scrollToSection(2)}
+              className="py-3 px-5 btn-secondary text-xs font-mono font-bold uppercase tracking-wider cursor-pointer flex items-center gap-2"
+            >
+              <span>Explore The Network</span>
+              <ArrowRight className="w-4 h-4 text-[#C72C41]" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================
+          PHASE 6: SECTION 2 — THE NETWORK
+          ======================================================== */}
+      <section
+        id="network-sec"
+        className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-20 z-10"
+      >
+        <div className="max-w-xl ml-auto space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#24151D] border border-[#49303A] text-[10px] font-mono font-bold text-[#38BDF8] uppercase">
+            <Navigation className="w-3 h-3 text-[#38BDF8]" />
+            <span>3D NETWORK CONSTELLATION</span>
+          </div>
+
+          <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-[#FFF7F5] leading-tight">
+            One Intelligent Network. <br />Countless Connections.
+          </h2>
+
+          <p className="text-xs sm:text-sm text-[#C3AEB4] leading-relaxed">
+            Our autonomous 3D coordination grid connects certified blood donors, intensive care units, and cold-storage distribution hubs into a unified medical topology.
+          </p>
+
+          {/* Network Legend */}
+          <div className="p-4 rounded-xl bg-[#24151D] border border-[#49303A] space-y-2.5 font-mono text-xs">
+            <span className="text-[10px] text-[#9C858D] uppercase font-bold block">
+              NETWORK TOPOLOGY NODE LEGEND:
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] shadow-sm shadow-[#22C55E]" />
+                <span className="text-[#FFF7F5]">Verified Donors</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#38BDF8] shadow-sm shadow-[#38BDF8]" />
+                <span className="text-[#FFF7F5]">Hospital Trauma Hubs</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#E8A0AA] shadow-sm shadow-[#E8A0AA]" />
+                <span className="text-[#FFF7F5]">Cold Storage Depots</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF334F] shadow-sm shadow-[#FF334F]" />
+                <span className="text-[#FFF7F5]">Priority ICU Beacons</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => scrollToSection(3)}
+            className="w-full py-3 btn-premium text-xs font-mono font-bold uppercase tracking-wider cursor-pointer shadow-lg flex items-center justify-center gap-2"
+          >
+            <span>Inspect Algorithmic Matching</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </section>
+
+      {/* ========================================================
+          PHASE 6: SECTION 3 — INTELLIGENT MATCHING
           ======================================================== */}
       <section
         id="matching-sec"
         className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-20 z-10"
       >
-        <div className="max-w-xl ml-auto space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
+        <div className="max-w-xl space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
           <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#24151D] border border-[#49303A] text-[10px] font-mono font-bold text-[#E8A0AA] uppercase">
             <Brain className="w-3 h-3 text-[#C72C41]" />
             <span>ALGORITHMIC COMPATIBILITY</span>
           </div>
 
           <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-[#FFF7F5] leading-tight">
-            Intelligence That Connects Lives.
+            Find the Right Match. Faster.
           </h2>
 
           <p className="text-xs sm:text-sm text-[#C3AEB4] leading-relaxed">
@@ -302,24 +430,24 @@ export default function Landing3DStory({
       </section>
 
       {/* ========================================================
-          SECTION 3 — REAL-TIME LOCATION (GIS RADAR TRANSITION)
+          PHASE 6: SECTION 4 — LOCATION INTELLIGENCE
           ======================================================== */}
       <section
         id="location-sec"
         className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-20 z-10"
       >
-        <div className="max-w-2xl space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
+        <div className="max-w-2xl ml-auto space-y-6 burgundy-card p-8 sm:p-10 border border-[#49303A] shadow-2xl backdrop-blur-xl">
           <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#24151D] border border-[#49303A] text-[10px] font-mono font-bold text-[#38BDF8] uppercase">
             <Globe className="w-3 h-3" />
             <span>GIS OPERATIONS RADAR</span>
           </div>
 
           <h2 className="font-heading text-3xl sm:text-4xl font-extrabold text-[#FFF7F5] leading-tight">
-            Location-Aware Dijkstra Corridors.
+            Help Is Closer Than You Think.
           </h2>
 
           <p className="text-xs sm:text-sm text-[#C3AEB4] leading-relaxed">
-            Dynamic urban routing accounts for live junction congestion, emergency roadblocks, and autonomous drone corridors between blood banks and intensive care units.
+            Dynamic urban routing accounts for live junction congestion, emergency roadblocks, and autonomous drone corridors between regional blood banks and intensive care units.
           </p>
 
           {/* Interactive Route Hub Showcase */}
@@ -358,7 +486,7 @@ export default function Landing3DStory({
       </section>
 
       {/* ========================================================
-          SECTION 4 — EMERGENCY RESPONSE (FOCUSED RUBY COMPOSITION)
+          PHASE 6: SECTION 5 — EMERGENCY RESPONSE
           ======================================================== */}
       <section
         id="emergency-sec"
@@ -387,7 +515,7 @@ export default function Landing3DStory({
               <span>AES-256 SIGNED</span>
             </div>
             <p className="text-[11px] leading-normal">
-              Direct mobile push notifications dispatches to all verified O-Negative and matching donor pools within a 15 km perimeter.
+              Direct mobile push notifications dispatch to all verified O-Negative and matching donor pools within a 15 km perimeter.
             </p>
           </div>
 
@@ -402,99 +530,99 @@ export default function Landing3DStory({
       </section>
 
       {/* ========================================================
-          SECTION 5 — DONOR COMMUNITY & HUMAN IMPACT
+          PHASE 6: SECTION 6 — TAKE ACTION
           ======================================================== */}
       <section
-        id="community-sec"
+        id="action-sec"
         className="relative min-h-screen flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-20 z-10"
       >
         <div className="max-w-4xl mx-auto w-full space-y-8">
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#321923] border border-[#49303A] text-[10px] font-mono font-bold text-[#E8A0AA] uppercase">
               <Users className="w-3 h-3 text-[#C72C41]" />
-              <span>COMMUNITY NETWORK</span>
+              <span>THE LIVING COMMUNITY</span>
             </div>
             <h2 className="font-heading text-3xl sm:text-5xl font-extrabold text-[#FFF7F5]">
-              Empowered by Ordinary Heroes.
+              Be the Connection Someone Needs.
             </h2>
             <p className="text-xs sm:text-sm text-[#C3AEB4] max-w-lg mx-auto">
               Every donor in our registry carries an encrypted digital health passport with live biometric sync, ensuring safety and trust at every stage.
             </p>
           </div>
 
-          {/* Donor Cards Grid */}
+          {/* Three Primary Actions Deck (Phase 6 Spec) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="burgundy-card p-5 border border-[#49303A] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-[#22C55E]/15 border border-[#22C55E]/40 flex items-center justify-center font-bold text-[#22C55E] text-xs font-mono">
-                  O-
-                </div>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] font-bold border border-[#22C55E]/30">
-                  ● AVAILABLE
-                </span>
+            <div className="burgundy-card p-6 border border-[#49303A] space-y-4 hover:border-[#C72C41]/60 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-[#22C55E]/15 border border-[#22C55E]/40 flex items-center justify-center font-bold text-[#22C55E]">
+                <Heart className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-xs text-[#FFF7F5]">Dr. Evelyn Vance</h4>
-                <p className="text-[10px] text-[#C3AEB4] font-mono mt-0.5">Bengaluru Central • 14 Donations</p>
-                <span className="inline-block mt-2 text-[9px] font-mono text-[#E8A0AA]">
-                  Rare Blood Guardian Tier
-                </span>
+                <h4 className="font-bold text-sm text-[#FFF7F5]">Register as a Donor</h4>
+                <p className="text-xs text-[#C3AEB4] mt-1 leading-relaxed">
+                  Join our verified registry and receive notifications when patients near you need your blood type.
+                </p>
               </div>
+              <button
+                onClick={() => onGoToRoute("donate")}
+                className="w-full py-2.5 btn-secondary text-xs font-mono font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Become a Donor
+              </button>
             </div>
 
-            <div className="burgundy-card p-5 border border-[#49303A] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-[#C72C41]/15 border border-[#C72C41]/40 flex items-center justify-center font-bold text-[#FFF7F5] text-xs font-mono">
-                  O+
-                </div>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] font-bold border border-[#22C55E]/30">
-                  ● AVAILABLE
-                </span>
+            <div className="burgundy-card p-6 border border-[#49303A] space-y-4 hover:border-[#C72C41]/60 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-[#38BDF8]/15 border border-[#38BDF8]/40 flex items-center justify-center font-bold text-[#38BDF8]">
+                <Users className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-xs text-[#FFF7F5]">Rahul Sharma</h4>
-                <p className="text-[10px] text-[#C3AEB4] font-mono mt-0.5">Hyderabad Hub • 9 Donations</p>
-                <span className="inline-block mt-2 text-[9px] font-mono text-[#E8A0AA]">
-                  Verified Digital Passport
-                </span>
+                <h4 className="font-bold text-sm text-[#FFF7F5]">Find a Donor</h4>
+                <p className="text-xs text-[#C3AEB4] mt-1 leading-relaxed">
+                  Filter verified donors by blood group, geographic location, and medical eligibility in real time.
+                </p>
               </div>
+              <button
+                onClick={() => onGoToRoute("dashboard")}
+                className="w-full py-2.5 btn-secondary text-xs font-mono font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Search Donors
+              </button>
             </div>
 
-            <div className="burgundy-card p-5 border border-[#49303A] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-[#38BDF8]/15 border border-[#38BDF8]/40 flex items-center justify-center font-bold text-[#38BDF8] text-xs font-mono">
-                  AB-
-                </div>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#38BDF8]/10 text-[#38BDF8] font-bold border border-[#38BDF8]/30">
-                  ● RECOVERING
-                </span>
+            <div className="burgundy-card p-6 border border-[#49303A] space-y-4 hover:border-[#C72C41]/60 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-[#FF334F]/15 border border-[#FF334F]/40 flex items-center justify-center font-bold text-[#FF334F]">
+                <Droplet className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-xs text-[#FFF7F5]">Ananya Sen</h4>
-                <p className="text-[10px] text-[#C3AEB4] font-mono mt-0.5">Mumbai Node • 6 Donations</p>
-                <span className="inline-block mt-2 text-[9px] font-mono text-[#E8A0AA]">
-                  Next Eligible: 12 Days
-                </span>
+                <h4 className="font-bold text-sm text-[#FFF7F5]">Request Blood</h4>
+                <p className="text-xs text-[#C3AEB4] mt-1 leading-relaxed">
+                  Submit verified hospital transfusion orders through the 7-step triage matching portal.
+                </p>
               </div>
+              <button
+                onClick={() => onGoToRoute("request")}
+                className="w-full py-2.5 btn-premium text-xs font-mono font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Request Units
+              </button>
             </div>
           </div>
 
-          {/* Master Call to Action Deck */}
+          {/* Master Operations Console Call to Action */}
           <div className="p-8 rounded-2xl bg-gradient-to-r from-[#211018] via-[#321923] to-[#27121B] border border-[#49303A] shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="space-y-1.5 text-center sm:text-left">
               <h3 className="font-heading text-xl font-bold text-[#FFF7F5]">
-                Ready to Join the Logistics Network?
+                Ready to Access the Full Platform?
               </h3>
               <p className="text-xs text-[#C3AEB4]">
-                Register as a donor, request clinical blood supplies, or inspect live telemetry.
+                Explore live GIS radar maps, manage blood banks, or inspect biometric cold-chain telemetry.
               </p>
             </div>
             <div className="flex flex-wrap gap-3 font-mono">
               <button
-                onClick={() => onGoToRoute("donate")}
+                onClick={onGuestAccess}
                 className="px-5 py-2.5 btn-secondary text-xs font-bold uppercase tracking-wider cursor-pointer"
               >
-                Become a Donor
+                Guest Demo
               </button>
               <button
                 onClick={onEnterApp}
@@ -508,18 +636,18 @@ export default function Landing3DStory({
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 px-6 py-8 border-t border-[#49303A] bg-[#190D13]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs text-[#9C858D]">
+      {/* Refined Footer */}
+      <footer className="relative z-10 px-6 py-8 border-t border-[#49303A] bg-[#190D13]/85 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs text-[#9C858D]">
         <div className="flex items-center gap-2">
           <Droplet className="w-4 h-4 text-[#C72C41] fill-[#C72C41]" />
-          <span>HEMOCONNECT 3D MEDICAL LOGISTICS PLATFORM</span>
+          <span>HEMOCONNECT — THE LIVING BLOOD NETWORK</span>
         </div>
         <div className="flex items-center gap-4 text-[11px]">
-          <button onClick={() => onGoToRoute("admin")} className="hover:text-[#FFF7F5] transition-colors">
+          <button onClick={() => onGoToRoute("admin")} className="hover:text-[#FFF7F5] transition-colors cursor-pointer">
             Database Admin (/admin)
           </button>
           <span>•</span>
-          <button onClick={onGuestAccess} className="hover:text-[#FFF7F5] transition-colors">
+          <button onClick={onGuestAccess} className="hover:text-[#FFF7F5] transition-colors cursor-pointer">
             Guest Access
           </button>
           <span>•</span>
